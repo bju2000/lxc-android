@@ -63,7 +63,6 @@ src/lxc/lxc-unshare
 src/lxc/lxc-usernsexec
 src/lxc/lxc-wait
 src/lxc/lxc-user-nic
-src/lxc/version.h
 src/lxc/cmd/lxc-checkconfig
 src/lxc/cmd/lxc-update-config
 
@@ -142,7 +141,6 @@ hooks/dhclient
 
 m4/
 
-src/config.h
 src/config.h.in
 src/stamp-h1
 
@@ -155,3 +153,5 @@ TAGS
 
 doc/api/doxygen_sqlite3.db
 doc/api/*.tmp
+
+.vscode
