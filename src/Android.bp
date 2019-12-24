@@ -86,7 +86,8 @@ cc_library {
         "lxc/terminal.c",
         "lxc/utils.c"
     ],
-    shared_libs: ["libcap"]
+    shared_libs: ["libcap"],
+    export_include_dirs : ["."],
 }
 
 cc_binary {
