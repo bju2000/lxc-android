@@ -370,3 +370,9 @@ cc_binary {
         "lxc/utils.c"
     ]
 }
+
+sh_binary {
+    name: "lxc-checkconfig",
+    src: "lxc/cmd/lxc-checkconfig.in",
+    vendor: true,
+}
