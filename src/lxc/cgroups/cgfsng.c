@@ -826,6 +826,21 @@ static struct hierarchy *add_hierarchy(struct hierarchy ***h, char **clist, char
 	return new;
 }
 
+static char *cg_hybrid_check_mountpoint(char *partial_line, char* mountpoint_parent) {
+    size_t len = strlen(mountpoint_parent);
+    if(strncmp(partial_line, mountpoint_parent, len) != 0) {
+        return NULL;
+    }
+
+    char* flags_end = strchr(partial_line + len, ' ');
+    if(!flags_end) {
+        return NULL;
+    }
+
+    *flags_end = '\0';
+
+    return partial_line;
+}
 /* Get a copy of the mountpoint from @line, which is a line from
  * /proc/self/mountinfo.
  */
@@ -843,13 +858,14 @@ static char *cg_hybrid_get_mountpoint(char *line)
 		p++;
 	}
 
-	if (strncmp(p, "/sys/fs/cgroup/", 15) != 0)
-		return NULL;
+    p2 = cg_hybrid_check_mountpoint(p, "/sys/fs/cgroup/");
+    if(!p2) {
+        p2 = cg_hybrid_check_mountpoint(p, "/dev/");
+    }
 
-	p2 = strchr(p + 15, ' ');
-	if (!p2)
-		return NULL;
-	*p2 = '\0';
+    if(!p2) {
+        return NULL;
+    }
 
 	len = strlen(p);
 	sret = must_realloc(NULL, len + 1);
@@ -2393,6 +2409,7 @@ static bool cg_hybrid_init(struct cgroup_ops *ops)
 				goto next;
 
 		mountpoint = cg_hybrid_get_mountpoint(line);
+
 		if (!mountpoint) {
 			ERROR("Failed parsing mountpoint from \"%s\"", line);
 			goto next;
