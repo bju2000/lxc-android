@@ -28,7 +28,6 @@ phony {
         "lxc-create",
         "lxc-snapshot",
         "lxc-checkpoint",
-        "lxc-checkconfig",
         "init.lxc",
         "lxc-monitord",
         "lxc-user-nic",
