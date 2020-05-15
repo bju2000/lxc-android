@@ -26,7 +26,6 @@ common_CFLAGS = [
 cc_defaults {
     name: "lxc-defaults",
     cflags: common_CFLAGS,
-    vendor: true,
     local_include_dirs: ["include", "lxc", "lxc/cgroups", "lxc/lsm", "lxc/storage", "lxc/tools"]
 }
 
