@@ -152,7 +152,7 @@ typedef struct lxc_attach_options_t {
 		/* .stdin_fd = */       0,                                     \
 		/* .stdout_fd = */      1,                                     \
 		/* .stderr_fd = */      2,                                     \
-		/* .log_fd    = */      -EBADF,                                \
+		/* .log_fd    = */      -9                                     \
 	}
 
 /*!
