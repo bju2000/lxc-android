@@ -44,14 +44,12 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	if (!c->set_config_item(c, "lxc.net.0.type", "veth")) {
+	if (!c->set_config_item(c, "lxc.network.type", "veth")) {
 		fprintf(stderr, "%d: failed to set network type\n", __LINE__);
 		goto out;
 	}
-
-	c->set_config_item(c, "lxc.net.0.link", "lxcbr0");
-	c->set_config_item(c, "lxc.net.0.flags", "up");
-
+	c->set_config_item(c, "lxc.network.link", "lxcbr0");
+	c->set_config_item(c, "lxc.network.flags", "up");
 	if (!c->createl(c, "busybox", NULL, NULL, 0, NULL)) {
 		fprintf(stderr, "%d: failed to create a trusty container\n", __LINE__);
 		goto out;
@@ -65,7 +63,6 @@ int main(int argc, char *argv[])
 	c->clear_config(c);
 	c->load_config(c, NULL);
 	c->want_daemonize(c, true);
-
 	if (!c->startl(c, 0, NULL)) {
 		fprintf(stderr, "%d: failed to start %s\n", __LINE__, MYNAME);
 		goto out;
@@ -88,7 +85,6 @@ int main(int argc, char *argv[])
 
 	fprintf(stderr, "all lxc_container tests passed for %s\n", c->name);
 	ret = 0;
-
 out:
 	lxc_container_put(c);
 	exit(ret);

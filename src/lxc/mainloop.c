@@ -20,19 +20,14 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/epoll.h>
 #include <unistd.h>
+#include <sys/epoll.h>
 
-#include "config.h"
 #include "mainloop.h"
 
 struct mainloop_handler {
@@ -45,32 +40,31 @@ struct mainloop_handler {
 
 int lxc_mainloop(struct lxc_epoll_descr *descr, int timeout_ms)
 {
-	int i, nfds, ret;
+	int i, nfds;
 	struct mainloop_handler *handler;
 	struct epoll_event events[MAX_EVENTS];
 
 	for (;;) {
+
 		nfds = epoll_wait(descr->epfd, events, MAX_EVENTS, timeout_ms);
 		if (nfds < 0) {
 			if (errno == EINTR)
 				continue;
-
 			return -1;
 		}
 
 		for (i = 0; i < nfds; i++) {
-			handler = events[i].data.ptr;
+			handler =
+				(struct mainloop_handler *) events[i].data.ptr;
 
-			/* If the handler returns a positive value, exit the
-			 * mainloop.
-			 */
-			ret = handler->callback(handler->fd, events[i].events,
-						handler->data, descr);
-			if (ret == LXC_MAINLOOP_CLOSE)
+			/* If the handler returns a positive value, exit
+			   the mainloop */
+			if (handler->callback(handler->fd, events[i].events,
+					      handler->data, descr) > 0)
 				return 0;
 		}
 
-		if (nfds == 0)
+		if (nfds == 0 && timeout_ms != 0)
 			return 0;
 
 		if (lxc_list_empty(&descr->handlers))
@@ -138,9 +132,14 @@ int lxc_mainloop_del_handler(struct lxc_epoll_descr *descr, int fd)
 int lxc_mainloop_open(struct lxc_epoll_descr *descr)
 {
 	/* hint value passed to epoll create */
-	descr->epfd = epoll_create1(EPOLL_CLOEXEC);
+	descr->epfd = epoll_create(2);
 	if (descr->epfd < 0)
 		return -1;
+
+	if (fcntl(descr->epfd, F_SETFD, FD_CLOEXEC)) {
+		close(descr->epfd);
+		return -1;
+	}
 
 	lxc_list_init(&descr->handlers);
 	return 0;
@@ -160,8 +159,6 @@ int lxc_mainloop_close(struct lxc_epoll_descr *descr)
 		iterator = next;
 	}
 
-	if (descr->epfd >= 0)
-		return close(descr->epfd);
-
-	return 0;
+	return close(descr->epfd);
 }
+

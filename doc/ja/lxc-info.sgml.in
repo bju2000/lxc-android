@@ -80,7 +80,7 @@ by KATOH Yasufumi <karma at jazz.email.ne.jp>
 
       <varlistentry>
         <term>
-          <option>-c, --config <replaceable>KEY</replaceable></option>
+          <option><optional>-c <replaceable>KEY</replaceable></optional></option>
         </term>
         <listitem>
           <para>
@@ -95,7 +95,7 @@ by KATOH Yasufumi <karma at jazz.email.ne.jp>
 
       <varlistentry>
         <term>
-          <option>-s, --state</option>
+          <option><optional>-s</optional></option>
         </term>
         <listitem>
           <para>
@@ -109,7 +109,7 @@ by KATOH Yasufumi <karma at jazz.email.ne.jp>
 
       <varlistentry>
         <term>
-          <option>-p, --pid</option>
+          <option><optional>-p</optional></option>
         </term>
         <listitem>
           <para>
@@ -123,21 +123,21 @@ by KATOH Yasufumi <karma at jazz.email.ne.jp>
 
       <varlistentry>
         <term>
-          <option>-i, --ips</option>
+          <option><optional>-i</optional></option>
         </term>
         <listitem>
           <para>
             <!--
             Just print the container's IP addresses.
             -->
-            コンテナの IP アドレスを表示します。
+            コンテナの IP アドレスを表示します。。
           </para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term>
-          <option>-S, --stats</option>
+          <option><optional>-S</optional></option>
         </term>
         <listitem>
           <para>
@@ -174,7 +174,7 @@ by KATOH Yasufumi <karma at jazz.email.ne.jp>
 
       <varlistentry>
         <term>
-          <option>-H, --no-humanize</option>
+          <option><optional>-H</optional></option>
         </term>
         <listitem>
           <para>
@@ -220,7 +220,7 @@ by KATOH Yasufumi <karma at jazz.email.ne.jp>
       </varlistentry>
 
       <varlistentry>
-        <term>lxc-info -n foo -c lxc.net.0.veth.pair</term>
+        <term>lxc-info -n foo -c lxc.network.0.veth.pair</term>
         <listitem>
           <para>
             <!--

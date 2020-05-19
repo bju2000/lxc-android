@@ -21,23 +21,51 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
-#include <sys/prctl.h>
-
-#include "compiler.h"
-#include "config.h"
-#include "file_utils.h"
 #include "initutils.h"
 #include "log.h"
-#include "macro.h"
 
-#ifndef HAVE_STRLCPY
-#include "include/strlcpy.h"
-#endif
+lxc_log_define(lxc_initutils, lxc);
 
-lxc_log_define(initutils, lxc);
+static int mount_fs(const char *source, const char *target, const char *type)
+{
+	/* the umount may fail */
+	if (umount(target))
+		WARN("failed to unmount %s : %s", target, strerror(errno));
+
+	if (mount(source, target, type, 0, NULL)) {
+		ERROR("failed to mount %s : %s", target, strerror(errno));
+		return -1;
+	}
+
+	DEBUG("'%s' mounted on '%s'", source, target);
+
+	return 0;
+}
+
+extern void lxc_setup_fs(void)
+{
+	if (mount_fs("proc", "/proc", "proc"))
+		INFO("failed to remount proc");
+
+	/* if /dev has been populated by us, /dev/shm does not exist */
+	if (access("/dev/shm", F_OK) && mkdir("/dev/shm", 0777))
+		INFO("failed to create /dev/shm");
+
+	/* if we can't mount /dev/shm, continue anyway */
+	if (mount_fs("shmfs", "/dev/shm", "tmpfs"))
+		INFO("failed to mount /dev/shm");
+
+	/* If we were able to mount /dev/shm, then /dev exists */
+	/* Sure, but it's read-only per config :) */
+	if (access("/dev/mqueue", F_OK) && mkdir("/dev/mqueue", 0666)) {
+		DEBUG("failed to create '/dev/mqueue'");
+		return;
+	}
+
+	/* continue even without posix message queue support */
+	if (mount_fs("mqueue", "/dev/mqueue", "mqueue"))
+		INFO("failed to mount /dev/mqueue");
+}
 
 static char *copy_global_config_value(char *p)
 {
@@ -46,17 +74,14 @@ static char *copy_global_config_value(char *p)
 
 	if (len < 1)
 		return NULL;
-
 	if (p[len-1] == '\n') {
 		p[len-1] = '\0';
 		len--;
 	}
-
-	retbuf = malloc(len + 1);
+	retbuf = malloc(len+1);
 	if (!retbuf)
 		return NULL;
-
-	(void)strlcpy(retbuf, p, len + 1);
+	strcpy(retbuf, p);
 	return retbuf;
 }
 
@@ -66,7 +91,6 @@ const char *lxc_global_config_value(const char *option_name)
 		{ "lxc.bdev.lvm.vg",        DEFAULT_VG      },
 		{ "lxc.bdev.lvm.thin_pool", DEFAULT_THIN_POOL },
 		{ "lxc.bdev.zfs.root",      DEFAULT_ZFSROOT },
-		{ "lxc.bdev.rbd.rbdpool",   DEFAULT_RBDPOOL },
 		{ "lxc.lxcpath",            NULL            },
 		{ "lxc.default_config",     NULL            },
 		{ "lxc.cgroup.pattern",     NULL            },
@@ -76,9 +100,9 @@ const char *lxc_global_config_value(const char *option_name)
 
 	/* placed in the thread local storage pool for non-bionic targets */
 #ifdef HAVE_TLS
-	static thread_local const char *values[sizeof(options) / sizeof(options[0])] = {0};
+	static __thread const char *values[sizeof(options) / sizeof(options[0])] = { 0 };
 #else
-	static const char *values[sizeof(options) / sizeof(options[0])] = {0};
+	static const char *values[sizeof(options) / sizeof(options[0])] = { 0 };
 #endif
 
 	/* user_config_path is freed as soon as it is used */
@@ -221,107 +245,53 @@ out:
 	return values[i];
 }
 
-/*
- * Sets the process title to the specified title. Note that this may fail if
- * the kernel doesn't support PR_SET_MM_MAP (kernels <3.18).
- */
-int setproctitle(char *title)
+extern void remove_trailing_slashes(char *p)
 {
-	static char *proctitle = NULL;
-	char buf[2048], *tmp;
-	FILE *f;
-	int i, len, ret = 0;
+	int l = strlen(p);
+	while (--l >= 0 && (p[l] == '/' || p[l] == '\n'))
+		p[l] = '\0';
+}
 
-	/* We don't really need to know all of this stuff, but unfortunately
-	 * PR_SET_MM_MAP requires us to set it all at once, so we have to
-	 * figure it out anyway.
-	 */
-	unsigned long start_data, end_data, start_brk, start_code, end_code,
-			start_stack, arg_start, arg_end, env_start, env_end,
-			brk_val;
-	struct prctl_mm_map prctl_map;
+FILE *fopen_cloexec(const char *path, const char *mode)
+{
+	int open_mode = 0;
+	int step = 0;
+	int fd;
+	int saved_errno = 0;
+	FILE *ret;
 
-	f = fopen_cloexec("/proc/self/stat", "r");
-	if (!f) {
-		return -1;
+	if (!strncmp(mode, "r+", 2)) {
+		open_mode = O_RDWR;
+		step = 2;
+	} else if (!strncmp(mode, "r", 1)) {
+		open_mode = O_RDONLY;
+		step = 1;
+	} else if (!strncmp(mode, "w+", 2)) {
+		open_mode = O_RDWR | O_TRUNC | O_CREAT;
+		step = 2;
+	} else if (!strncmp(mode, "w", 1)) {
+		open_mode = O_WRONLY | O_TRUNC | O_CREAT;
+		step = 1;
+	} else if (!strncmp(mode, "a+", 2)) {
+		open_mode = O_RDWR | O_CREAT | O_APPEND;
+		step = 2;
+	} else if (!strncmp(mode, "a", 1)) {
+		open_mode = O_WRONLY | O_CREAT | O_APPEND;
+		step = 1;
 	}
+	for (; mode[step]; step++)
+		if (mode[step] == 'x')
+			open_mode |= O_EXCL;
+	open_mode |= O_CLOEXEC;
 
-	tmp = fgets(buf, sizeof(buf), f);
-	fclose(f);
-	if (!tmp) {
-		return -1;
-	}
+	fd = open(path, open_mode, 0666);
+	if (fd < 0)
+		return NULL;
 
-	/* Skip the first 25 fields, column 26-28 are start_code, end_code,
-	 * and start_stack */
-	tmp = strchr(buf, ' ');
-	for (i = 0; i < 24; i++) {
-		if (!tmp)
-			return -1;
-		tmp = strchr(tmp+1, ' ');
-	}
-	if (!tmp)
-		return -1;
-
-	i = sscanf(tmp, "%lu %lu %lu", &start_code, &end_code, &start_stack);
-	if (i != 3)
-		return -1;
-
-	/* Skip the next 19 fields, column 45-51 are start_data to arg_end */
-	for (i = 0; i < 19; i++) {
-		if (!tmp)
-			return -1;
-		tmp = strchr(tmp+1, ' ');
-	}
-
-	if (!tmp)
-		return -1;
-
-	i = sscanf(tmp, "%lu %lu %lu %*u %*u %lu %lu",
-		&start_data,
-		&end_data,
-		&start_brk,
-		&env_start,
-		&env_end);
-	if (i != 5)
-		return -1;
-
-	/* Include the null byte here, because in the calculations below we
-	 * want to have room for it. */
-	len = strlen(title) + 1;
-
-	proctitle = realloc(proctitle, len);
-	if (!proctitle)
-		return -1;
-
-	arg_start = (unsigned long) proctitle;
-	arg_end = arg_start + len;
-
-	brk_val = syscall(__NR_brk, 0);
-
-	prctl_map = (struct prctl_mm_map) {
-		.start_code = start_code,
-		.end_code = end_code,
-		.start_stack = start_stack,
-		.start_data = start_data,
-		.end_data = end_data,
-		.start_brk = start_brk,
-		.brk = brk_val,
-		.arg_start = arg_start,
-		.arg_end = arg_end,
-		.env_start = env_start,
-		.env_end = env_end,
-		.auxv = NULL,
-		.auxv_size = 0,
-		.exe_fd = -1,
-	};
-
-	ret = prctl(PR_SET_MM, prctl_arg(PR_SET_MM_MAP), prctl_arg(&prctl_map),
-		    prctl_arg(sizeof(prctl_map)), prctl_arg(0));
-	if (ret == 0)
-		(void)strlcpy((char*)arg_start, title, len);
-	else
-		SYSWARN("Failed to set cmdline");
-
+	ret = fdopen(fd, mode);
+	saved_errno = errno;
+	if (!ret)
+		close(fd);
+	errno = saved_errno;
 	return ret;
 }

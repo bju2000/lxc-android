@@ -19,22 +19,14 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <errno.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
-
-#include "lxctest.h"
-#include "utils.h"
-#include "lsm/lsm.h"
-
 #include <lxc/lxccontainer.h>
+#include "lxc/utils.h"
+#include "lxc/lsm/lsm.h"
 
-#ifndef HAVE_STRLCPY
-#include "include/strlcpy.h"
-#endif
+#include <string.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <unistd.h>
 
 #define TSTNAME    "lxc-attach-test"
 #define TSTOUT(fmt, ...) do { \
@@ -51,15 +43,12 @@ static void test_lsm_detect(void)
 {
 	if (lsm_enabled()) {
 		if (!strcmp(lsm_name(), "SELinux")) {
-			lsm_config_key = "lxc.selinux.context";
+			lsm_config_key = "lxc.se_context";
 			lsm_label      = "unconfined_u:unconfined_r:lxc_t:s0-s0:c0.c1023";
 		}
 		else if (!strcmp(lsm_name(), "AppArmor")) {
-			lsm_config_key = "lxc.apparmor.profile";
-			if (file_exists("/proc/self/ns/cgroup"))
-				lsm_label      = "lxc-container-default-cgns";
-			else
-				lsm_label      = "lxc-container-default";
+			lsm_config_key = "lxc.aa_profile";
+			lsm_label      = "lxc-container-default";
 		}
 		else {
 			TSTERR("unknown lsm %s enabled, add test code here", lsm_name());
@@ -78,7 +67,7 @@ static void test_attach_lsm_set_config(struct lxc_container *ct)
 
 static int test_attach_lsm_func_func(void* payload)
 {
-	TSTOUT("%s", lsm_process_label_get(syscall(SYS_getpid)));
+	TSTOUT("%s", lsm_process_label_get(getpid()));
 	return 0;
 }
 
@@ -121,7 +110,7 @@ static int test_attach_lsm_func(struct lxc_container *ct)
 	ret = 0;
 
 err2:
-	(void)wait_for_pid(pid);
+	wait_for_pid(pid);
 err1:
 	close(pipefd[0]);
 	close(pipefd[1]);
@@ -175,7 +164,7 @@ static int test_attach_lsm_cmd(struct lxc_container *ct)
 	ret = 0;
 
 err2:
-	(void)wait_for_pid(pid);
+	wait_for_pid(pid);
 err1:
 	close(pipefd[0]);
 	close(pipefd[1]);
@@ -189,7 +178,7 @@ static int  test_attach_lsm_cmd(struct lxc_container *ct) { return 0; }
 
 static int test_attach_func_func(void* payload)
 {
-	TSTOUT("%d", (int)syscall(SYS_getpid));
+	TSTOUT("%d", getpid());
 	return 0;
 }
 
@@ -237,7 +226,7 @@ static int test_attach_func(struct lxc_container *ct)
 	ret = 0;
 
 err2:
-	(void)wait_for_pid(pid);
+	wait_for_pid(pid);
 err1:
 	close(pipefd[0]);
 	close(pipefd[1]);
@@ -391,61 +380,19 @@ err1:
 
 int main(int argc, char *argv[])
 {
-	int i, ret;
-	struct lxc_log log;
-	char template[sizeof(P_tmpdir"/attach_XXXXXX")];
-	int fret = EXIT_FAILURE;
-
-	(void)strlcpy(template, P_tmpdir"/attach_XXXXXX", sizeof(template));
-
-	i = lxc_make_tmpfile(template, false);
-	if (i < 0) {
-		lxc_error("Failed to create temporary log file for container %s\n", TSTNAME);
-		exit(EXIT_FAILURE);
-	} else {
-		lxc_debug("Using \"%s\" as temporary log file for container %s\n", template, TSTNAME);
-		close(i);
-	}
-
-	log.name = TSTNAME;
-	log.file = template;
-	log.level = "TRACE";
-	log.prefix = "attach";
-	log.quiet = false;
-	log.lxcpath = NULL;
-	if (lxc_log_init(&log))
-		goto on_error;
+	int ret;
 
 	test_lsm_detect();
 	ret = test_attach(NULL, TSTNAME, "busybox");
 	if (ret < 0)
-		goto on_error;
+		return EXIT_FAILURE;
 
 	TSTOUT("\n");
 	ret = test_attach(LXCPATH "/alternate-path-test", TSTNAME, "busybox");
 	if (ret < 0)
-		goto on_error;
+		return EXIT_FAILURE;
 
-	TSTOUT("All tests passed\n");
-	fret = EXIT_SUCCESS;
-
-on_error:
-	if (fret != EXIT_SUCCESS) {
-		int fd;
-
-		fd = open(template, O_RDONLY);
-		if (fd >= 0) {
-			char buf[4096];
-			ssize_t buflen;
-			while ((buflen = read(fd, buf, 1024)) > 0) {
-				buflen = write(STDERR_FILENO, buf, buflen);
-				if (buflen <= 0)
-					break;
-			}
-			close(fd);
-		}
-	}
 	(void)rmdir(LXCPATH "/alternate-path-test");
-	(void)unlink(template);
-	exit(fret);
+	TSTOUT("All tests passed\n");
+	return EXIT_SUCCESS;
 }

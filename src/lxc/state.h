@@ -24,22 +24,9 @@
 #define __LXC_STATE_H
 
 typedef enum {
-	STOPPED,
-	STARTING,
-	RUNNING,
-	STOPPING,
-	ABORTING,
-	FREEZING,
-	FROZEN,
-	THAWED,
-	MAX_STATE,
+	STOPPED, STARTING, RUNNING, STOPPING,
+	ABORTING, FREEZING, FROZEN, THAWED, MAX_STATE,
 } lxc_state_t;
-
-enum {
-	REBOOT_NONE,
-	REBOOT_REQ,
-	REBOOT_INIT
-};
 
 extern lxc_state_t lxc_getstate(const char *name, const char *lxcpath);
 

@@ -27,17 +27,14 @@
 extern "C" {
 #endif
 
-#include <stdbool.h>
 #include <stddef.h>
 #include <sys/select.h>
 #include <sys/types.h>
-
 #include "state.h"
 
 struct lxc_msg;
 struct lxc_conf;
 struct lxc_arguments;
-struct lxc_handler;
 
 /**
  Following code is for liblxc.
@@ -47,28 +44,24 @@ struct lxc_handler;
 
 /*
  * Start the specified command inside a system container
- * @name         : the name of the container
- * @argv         : an array of char * corresponding to the command line
- * @conf         : configuration
- * @daemonize    : whether or not the container is daemonized
+ * @name     : the name of the container
+ * @argv     : an array of char * corresponding to the commande line
+ * @conf     : configuration
  * Returns 0 on success, < 0 otherwise
  */
-extern int lxc_start(const char *name, char *const argv[],
-		     struct lxc_handler *handler, const char *lxcpath,
-		     bool daemonize, int *error_num);
+extern int lxc_start(const char *name, char *const argv[], struct lxc_conf *conf,
+		     const char *lxcpath);
 
 /*
  * Start the specified command inside an application container
- * @name         : the name of the container
- * @argv         : an array of char * corresponding to the command line
- * @quiet        : if != 0 then lxc-init won't produce any output
- * @conf         : configuration
- * @daemonize    : whether or not the container is daemonized
+ * @name     : the name of the container
+ * @argv     : an array of char * corresponding to the commande line
+ * @quiet    : if != 0 then lxc-init won't produce any output
+ * @conf     : configuration
  * Returns 0 on success, < 0 otherwise
  */
 extern int lxc_execute(const char *name, char *const argv[], int quiet,
-		       struct lxc_handler *handler, const char *lxcpath,
-		       bool daemonize, int *error_num);
+		       struct lxc_conf *conf, const char *lxcpath);
 
 /*
  * Close the fd associated with the monitoring
@@ -99,6 +92,29 @@ extern int lxc_unfreeze(const char *name, const char *lxcpath);
 extern lxc_state_t lxc_state(const char *name, const char *lxcpath);
 
 /*
+ * Set a specified value for a specified subsystem. The specified
+ * subsystem must be fully specified, eg. "cpu.shares"
+ * @filename  : the cgroup attribute filename
+ * @value     : the value to be set
+ * @name      : the name of the container
+ * @lxcpath   : lxc config path for container
+ * Returns 0 on success, < 0 otherwise
+ */
+extern int lxc_cgroup_set(const char *filename, const char *value, const char *name, const char *lxcpath);
+
+/*
+ * Get a specified value for a specified subsystem. The specified
+ * subsystem must be fully specified, eg. "cpu.shares"
+ * @filename  : the cgroup attribute filename
+ * @value     : the value to be set
+ * @len       : the len of the value variable
+ * @name      : the name of the container
+ * @lxcpath   : lxc config path for container
+ * Returns the number of bytes read, < 0 on error
+ */
+extern int lxc_cgroup_get(const char *filename, char *value, size_t len, const char *name, const char *lxcpath);
+
+/*
  * Create and return a new lxccontainer struct.
  */
 extern struct lxc_container *lxc_container_new(const char *name, const char *configpath);
@@ -126,13 +142,6 @@ extern int lxc_get_wait_states(const char **states);
  * Add a dependency to a container
  */
 extern int add_rdepend(struct lxc_conf *lxc_conf, char *rdepend);
-
-/*
- * Set a key/value configuration option. Requires that to take a lock on the
- * in-memory config of the container.
- */
-extern int lxc_set_config_item_locked(struct lxc_conf *conf, const char *key,
-				      const char *v);
 
 #ifdef __cplusplus
 }

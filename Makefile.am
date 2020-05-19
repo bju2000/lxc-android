@@ -2,7 +2,6 @@
 
 ACLOCAL_AMFLAGS = -I config
 
-LIBTOOL_DEPS = @LIBTOOL_DEPS@
 SUBDIRS = config src templates doc hooks
 DIST_SUBDIRS = config src templates doc hooks
 EXTRA_DIST = \
@@ -13,11 +12,16 @@ EXTRA_DIST = \
 
 RPMARGS =
 
+if ENABLE_LUA
+RPMARGS += --with lua
+endif
+
+if ENABLE_PYTHON
+RPMARGS += --with python
+endif
+
 pcdatadir = $(libdir)/pkgconfig
 pcdata_DATA = lxc.pc
-
-libtool: $(LIBTOOL_DEPS)
-	$(SHELL) ./config.status libtool
 
 install-data-local:
 	$(MKDIR_P) $(DESTDIR)$(LXCPATH)

@@ -21,25 +21,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
 #include <errno.h>
-#include <selinux/selinux.h>
-#include <stdbool.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <selinux/selinux.h>
 
-#include "conf.h"
-#include "config.h"
 #include "log.h"
-#include "lsm.h"
+#include "lsm/lsm.h"
 
 #define DEFAULT_LABEL "unconfined_t"
 
-lxc_log_define(selinux, lsm);
+lxc_log_define(lxc_lsm_selinux, lxc);
 
 /*
  * selinux_process_label_get: Get SELinux context of a process
@@ -68,43 +61,39 @@ static char *selinux_process_label_get(pid_t pid)
 /*
  * selinux_process_label_set: Set SELinux context of a process
  *
- * @label   : label string
- * @conf    : the container configuration to use if @label is NULL
- * @default : use the default context if @label is NULL
+ * @label   : the context to set
+ * @default : use the default context if label is NULL
  * @on_exec : the new context will take effect on exec(2) not immediately
  *
  * Returns 0 on success, < 0 on failure
  *
  * Notes: This relies on /proc being available.
  */
-static int selinux_process_label_set(const char *inlabel, struct lxc_conf *conf,
-				     bool use_default, bool on_exec)
+static int selinux_process_label_set(const char *label, int use_default,
+				     int on_exec)
 {
-	int ret;
-	const char *label;
-
-	label = inlabel ? inlabel : conf->lsm_se_context;
 	if (!label) {
-		if (!use_default)
-			return -EINVAL;
-
-		label = DEFAULT_LABEL;
+		if (use_default)
+			label = DEFAULT_LABEL;
+		else
+			return -1;
 	}
-
-	if (strcmp(label, "unconfined_t") == 0)
+	if (!strcmp(label, "unconfined_t"))
 		return 0;
 
-	if (on_exec)
-		ret = setexeccon_raw((char *)label);
-	else
-		ret = setcon_raw((char *)label);
-	if (ret < 0) {
-		SYSERROR("Failed to set SELinux%s context to \"%s\"",
-			 on_exec ? " exec" : "", label);
-		return -1;
+	if (on_exec) {
+		if (setexeccon_raw((char *)label) < 0) {
+			SYSERROR("failed to set new SELinux exec context %s", label);
+			return -1;
+		}
+	} else {
+		if (setcon_raw((char *)label) < 0) {
+			SYSERROR("failed to set new SELinux context %s", label);
+			return -1;
+		}
 	}
 
-	INFO("Changed SELinux%s context to \"%s\"", on_exec ? " exec" : "", label);
+	INFO("changed SELinux%s context to %s", on_exec ? " exec" : "", label);
 	return 0;
 }
 

@@ -50,7 +50,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Adding %s to the container (%s) failed...\n", DEVICE, NAME);
 		goto out;
 	}
-
 	if (!c->remove_device_node(c, DEVICE, DEVICE)) {
 		fprintf(stderr, "Removing %s from the container (%s) failed...\n", DEVICE, NAME);
 		goto out;
@@ -65,7 +64,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Destroying the container (%s) failed...\n", NAME);
 		goto out;
 	}
-
 	ret = 0;
 
 out:

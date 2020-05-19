@@ -1,8 +1,14 @@
 /* src/config.h.  Generated from config.h.in by configure.  */
 /* src/config.h.in.  Generated from configure.ac by autoheader.  */
 
-/* "Prefix for shared files." */
-// #define DATADIR ""
+/* Python3 is available */
+/* #undef ENABLE_PYTHON */
+
+/* Have cgmanager_get_pid_cgroup_abs_sync */
+/* #undef HAVE_CGMANAGER_GET_PID_CGROUP_ABS_SYNC */
+
+/* Have cgmanager_list_controllers */
+/* #undef HAVE_CGMANAGER_LIST_CONTROLLERS */
 
 /* Define to 1 if you have the `confstr' function. */
 /* #undef HAVE_CONFSTR */
@@ -11,24 +17,9 @@
    you don't. */
 #define HAVE_DECL_PR_CAPBSET_DROP 1
 
-/* Define to 1 if you have the declaration of `PR_GET_NO_NEW_PRIVS', and to 0
-   if you don't. */
-#define HAVE_DECL_PR_GET_NO_NEW_PRIVS 1
-
-/* Define to 1 if you have the declaration of `PR_SET_NO_NEW_PRIVS', and to 0
-   if you don't. */
-#define HAVE_DECL_PR_SET_NO_NEW_PRIVS 1
-
 /* Define to 1 if you have the declaration of
    `seccomp_syscall_resolve_name_arch', and to 0 if you don't. */
 #define HAVE_DECL_SECCOMP_SYSCALL_RESOLVE_NAME_ARCH 0
-
-/* Define to 1 if you have the declaration of `strerror_r', and to 0 if you
-   don't. */
-#define HAVE_DECL_STRERROR_R 1
-
-/* Define to 1 if you have the <dlfcn.h> header file. */
-#define HAVE_DLFCN_H 1
 
 /* Define to 1 if you have the `endmntent' function. */
 #define HAVE_ENDMNTENT 1
@@ -39,32 +30,23 @@
 /* Define to 1 if you have the `fgetln' function. */
 #define HAVE_FGETLN 1
 
-/* Define to 1 if you have the `getgrgid_r' function. */
-#define HAVE_GETGRGID_R 1
-
 /* Define to 1 if you have the `getline' function. */
 #define HAVE_GETLINE 1
-
-/* Define to 1 if you have the `getsubopt' function. */
-#define HAVE_GETSUBOPT 1
-
-/* Define to 1 if you have the `gettid' function. */
-#define HAVE_GETTID 1
 
 /* Define to 1 if you have the `hasmntopt' function. */
 #define HAVE_HASMNTOPT 1
 
-/* Have ifaddrs.h */
+/* Define to 1 if you have the <ifaddrs.h> header file. */
 #define HAVE_IFADDRS_H 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
 
-/* Define to 1 if you have the `keyctl' function. */
-/* #undef HAVE_KEYCTL */
+/* Define to 1 if you have the `apparmor' library (-lapparmor). */
+/* #undef HAVE_LIBAPPARMOR */
 
-/* Define to 1 if you have the `cap' library (-lcap). */
-#define HAVE_LIBCAP 1
+/* Define to 1 if you have the `gnutls' library (-lgnutls). */
+/* #undef HAVE_LIBGNUTLS */
 
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 /* #undef HAVE_LIBPTHREAD */
@@ -84,9 +66,6 @@
 /* Define to 1 if you have the <linux/unistd.h> header file. */
 #define HAVE_LINUX_UNISTD_H 1
 
-/* Define to 1 if you have the `memfd_create' function. */
-/* #undef HAVE_MEMFD_CREATE */
-
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
@@ -96,20 +75,8 @@
 /* Define to 1 if you have the `pivot_root' function. */
 /* #undef HAVE_PIVOT_ROOT */
 
-/* Define to 1 if you have the `prlimit' function. */
-#define HAVE_PRLIMIT 1
-
-/* Define to 1 if you have the `prlimit64' function. */
-#define HAVE_PRLIMIT64 1
-
-/* Define if you have POSIX threads libraries and header files. */
-#define HAVE_PTHREAD 1
-
-/* Have PTHREAD_PRIO_INHERIT. */
-#define HAVE_PTHREAD_PRIO_INHERIT 1
-
-/* Define to 1 if you have the `pthread_setcancelstate' function. */
-/* #undef HAVE_PTHREAD_SETCANCELSTATE */
+/* Define to 1 if you have the `pthread_atfork' function. */
+#define HAVE_PTHREAD_ATFORK 1
 
 /* Define to 1 if you have the <pty.h> header file. */
 #define HAVE_PTY_H 1
@@ -129,9 +96,6 @@
 /* Define to 1 if you have the `setns' function. */
 #define HAVE_SETNS 1
 
-/* Have static libcap */
-/* #undef HAVE_STATIC_LIBCAP */
-
 /* Define to 1 if you have the `statvfs' function. */
 #define HAVE_STATVFS 1
 
@@ -141,32 +105,14 @@
 /* Define to 1 if you have the <stdlib.h> header file. */
 #define HAVE_STDLIB_H 1
 
-/* Define to 1 if you have the `strerror_r' function. */
-#define HAVE_STRERROR_R 1
-
 /* Define to 1 if you have the <strings.h> header file. */
 #define HAVE_STRINGS_H 1
 
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
 
-/* Define to 1 if you have the `strlcat' function. */
-#define HAVE_STRLCAT 1
-
-/* Define to 1 if you have the `strlcpy' function. */
-#define HAVE_STRLCPY 1
-
-/* Define to 1 if the system has the type `struct rtnl_link_stats64'. */
-#define HAVE_STRUCT_RTNL_LINK_STATS64 1
-
-/* Define to 1 if you have the <sys/memfd.h> header file. */
-/* #undef HAVE_SYS_MEMFD_H */
-
 /* Define to 1 if you have the <sys/personality.h> header file. */
 #define HAVE_SYS_PERSONALITY_H 1
-
-/* Define to 1 if you have the <sys/resource.h> header file. */
-#define HAVE_SYS_RESOURCE_H 1
 
 /* Define to 1 if you have the <sys/signalfd.h> header file. */
 #define HAVE_SYS_SIGNALFD_H 1
@@ -181,7 +127,7 @@
 #define HAVE_SYS_TYPES_H 1
 
 /* Define if the compiler supports __thread */
-#define HAVE_TLS 1
+/* #undef HAVE_TLS */
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
@@ -197,12 +143,6 @@
 
 /* bionic libc */
 #define IS_BIONIC 1
-
-/* Have cap_get_file */
-#define LIBCAP_SUPPORTS_FILE_CAPABILITIES 1
-
-/* Define to the sub-directory where libtool stores uninstalled libraries. */
-#define LT_OBJDIR ".libs/"
 
 /* Define to 1 if `major', `minor', and `makedev' are declared in <mkdev.h>.
    */
@@ -225,7 +165,7 @@
 #define PACKAGE_NAME "lxc"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "lxc 3.0.3"
+#define PACKAGE_STRING "lxc 1.0.11"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "lxc"
@@ -234,17 +174,10 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "3.0.3"
-
-/* Define to necessary symbol if this constant uses a non-standard name on
-   your system. */
-/* #undef PTHREAD_CREATE_JOINABLE */
+#define PACKAGE_VERSION "1.0.11"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
-
-/* Define to 1 if strerror_r returns char *. */
-#define STRERROR_R_CHAR_P 1
 
 /* Enable extensions on AIX 3, Interix.  */
 #ifndef _ALL_SOURCE
@@ -269,7 +202,7 @@
 
 
 /* Version number of package */
-#define VERSION "3.0.3"
+#define VERSION "1.0.11"
 
 /* Define to 1 if on MINIX. */
 /* #undef _MINIX */
@@ -282,4 +215,4 @@
 /* #undef _POSIX_SOURCE */
 
 /* Define to the compiler TLS keyword */
-#define thread_local __thread
+/* #undef thread_local */

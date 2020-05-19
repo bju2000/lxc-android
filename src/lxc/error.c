@@ -28,7 +28,7 @@
 #include "error.h"
 #include "log.h"
 
-lxc_log_define(error, lxc);
+lxc_log_define(lxc_error, lxc);
 
 /*---------------------------------------------------------------------------*/
 /* lxc_error_set_and_log
@@ -46,13 +46,13 @@ extern int  lxc_error_set_and_log(int pid, int status)
 	if (WIFEXITED(status)) {
 		ret = WEXITSTATUS(status);
 		if (ret)
-			INFO("Child <%d> ended on error (%d)", pid, ret);
+			INFO("child <%d> ended on error (%d)", pid, ret);
 	}
 
 	if (WIFSIGNALED(status)) {
 		int signal = WTERMSIG(status);
-		INFO("Child <%d> ended on signal (%d)", pid, signal);
-		ret = 128 + signal;
+
+		INFO("child <%d> ended on signal (%d)", pid, signal);
 	}
 
 	return ret;

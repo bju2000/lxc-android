@@ -22,12 +22,11 @@
 
 #ifndef __LXC_CONTAINER_H
 #define __LXC_CONTAINER_H
-
 #include <malloc.h>
 #include <semaphore.h>
 #include <stdbool.h>
-#include <stdint.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include <lxc/attach_options.h>
 
@@ -50,10 +49,6 @@ struct lxc_snapshot;
 
 struct lxc_lock;
 
-struct migrate_opts;
-
-struct lxc_console_log;
-
 /*!
  * An LXC container.
  *
@@ -62,7 +57,7 @@ struct lxc_console_log;
  * changes, whenever possible stick to simply appending new members.
  */
 struct lxc_container {
-	/* private fields */
+	// private fields
 	/*!
 	 * \private
 	 * Name of container.
@@ -108,7 +103,7 @@ struct lxc_container {
 	 */
 	struct lxc_conf *lxc_conf;
 
-	/* public fields */
+	// public fields
 	/*! Human-readable string representing last error */
 	char *error_string;
 
@@ -294,7 +289,7 @@ struct lxc_container {
 	bool (*destroy)(struct lxc_container *c);
 
 	/*!
-	 * \brief Save configuration to a file.
+	 * \brief Save configuaration to a file.
 	 *
 	 * \param c Container.
 	 * \param alt_file Full path to file to save configuration in.
@@ -657,7 +652,7 @@ struct lxc_container {
 	 * \brief Create a container snapshot.
 	 *
 	 * Assuming default paths, snapshots will be created as
-	 * \c /var/lib/lxc/\<c\>/snaps/snap\<n\>
+	 * \c /var/lib/lxcsnaps/\<c\>/snap\<n\>
 	 * where \c \<c\> represents the container name and \c \<n\>
 	 * represents the zero-based snapshot number.
 	 *
@@ -699,7 +694,7 @@ struct lxc_container {
 	 *  fail if the  snapshot is overlay-based, since the snapshots
 	 *  will pin the original container.
 	 * \note As an example, if the container exists as \c /var/lib/lxc/c1, snapname might be \c 'snap0'
-	 *  (representing \c /var/lib/lxc/c1/snaps/snap0). If \p newname is \p c2,
+	 *  (representing \c /var/lib/lxcsnaps/c1/snap0). If \p newname is \p c2,
 	 *  then \c snap0 will be copied to \c /var/lib/lxc/c2.
 	 */
 	bool (*snapshot_restore)(struct lxc_container *c, const char *snapname, const char *newname);
@@ -748,105 +743,6 @@ struct lxc_container {
 	 * \return \c true on success, else \c false.
 	 */
 	bool (*remove_device_node)(struct lxc_container *c, const char *src_path, const char *dest_path);
-
-	/* Post LXC-1.0 additions */
-
-	/*!
-	 * \brief Add specified netdev to the container.
-	 *
-	 * \param c Container.
-	 * \param dev name of net device.
-	 *
-	 * \return \c true on success, else \c false.
-	 */
-	bool (*attach_interface)(struct lxc_container *c, const char *dev, const char *dst_dev);
-
-	/*!
-	 * \brief Remove specified netdev from the container.
-	 *
-	 * \param c Container.
-	 * \param dev name of net device.
-	 *
-	 * \return \c true on success, else \c false.
-	 */
-	bool (*detach_interface)(struct lxc_container *c, const char *dev, const char *dst_dev);
-	/*!
-	 * \brief Checkpoint a container.
-	 *
-	 * \param c Container.
-	 * \param directory The directory to dump the container to.
-	 * \param stop Whether or not to stop the container after checkpointing.
-	 * \param verbose Enable criu's verbose logs.
-	 *
-	 * \return \c true on success, else \c false.
-	 * present at compile time).
-	 */
-	bool (*checkpoint)(struct lxc_container *c, char *directory, bool stop, bool verbose);
-
-	/*!
-	 * \brief Restore a container from a checkpoint.
-	 *
-	 * \param c Container.
-	 * \param directory The directory to restore the container from.
-	 * \param verbose Enable criu's verbose logs.
-	 *
-	 * \return \c true on success, else \c false.
-	 *
-	 */
-	bool (*restore)(struct lxc_container *c, char *directory, bool verbose);
-
-	/*!
-	 * \brief Delete the container and all its snapshots.
-	 *
-	 * \param c Container.
-	 *
-	 * \return \c true on success, else \c false.
-	 *
-	 * \note Container must be stopped.
-	 */
-	bool (*destroy_with_snapshots)(struct lxc_container *c);
-
-	/*!
-	 * \brief Destroy all the container's snapshot.
-	 *
-	 * \param c Container.
-	 *
-	 * \return \c true on success, else \c false.
-	 */
-	bool (*snapshot_destroy_all)(struct lxc_container *c);
-
-	/* Post LXC-1.1 additions */
-	/*!
-	 * \brief An API call to perform various migration operations
-	 *
-	 * \param cmd One of the MIGRATE_ constants.
-	 * \param opts A migrate_opts struct filled with relevant options.
-	 * \param size The size of the migrate_opts struct, i.e. sizeof(struct migrate_opts).
-	 *
-	 * \return \c 0 on success, nonzero on failure.
-	 */
-	int (*migrate)(struct lxc_container *c, unsigned int cmd, struct migrate_opts *opts, unsigned int size);
-
-	/*!
-	 * \brief Query the console log of a container.
-	 *
-	 * \param c Container.
-	 * \param opts A lxc_console_log struct filled with relevant options.
-	 *
-	 * \return \c 0 on success, nonzero on failure.
-	 */
-	int (*console_log)(struct lxc_container *c, struct lxc_console_log *log);
-
-	/*!
-	 * \brief Request the container reboot by sending it \c SIGINT.
-	 *
-	 * \param c Container.
-	 * \param timeout Seconds to wait before returning false.
-	 *  (-1 to wait forever, 0 to avoid waiting).
-	 *
-	 * \return \c true if the container was rebooted successfully, else \c false.
-	 */
-	bool (*reboot2)(struct lxc_container *c, int timeout);
 };
 
 /*!
@@ -881,93 +777,6 @@ struct bdev_specs {
 		char *thinpool; /*!< LVM thin pool to use, if any */
 	} lvm;
 	char *dir; /*!< Directory path */
-	struct {
-		char *rbdname; /*!< RBD image name */
-		char *rbdpool; /*!< Ceph pool name */
-	} rbd;
-};
-
-/*!
- * \brief Commands for the migrate API call.
- */
-enum {
-	MIGRATE_PRE_DUMP,
-	MIGRATE_DUMP,
-	MIGRATE_RESTORE,
-	MIGRATE_FEATURE_CHECK,
-};
-
-/*!
- * \brief Available feature checks.
- */
-#define FEATURE_MEM_TRACK    (1ULL << 0)
-#define FEATURE_LAZY_PAGES   (1ULL << 1)
-
-/*!
- * \brief Options for the migrate API call.
- */
-struct migrate_opts {
-	/* new members should be added at the end */
-	char *directory;
-	bool verbose;
-
-	bool stop; /* stop the container after dump? */
-	char *predump_dir; /* relative to directory above */
-	char *pageserver_address; /* where should memory pages be send? */
-	char *pageserver_port;
-
-	/* This flag indicates whether or not the container's rootfs will have
-	 * the same inodes on checkpoint and restore. In the case of e.g. zfs
-	 * send or btrfs send, or an LVM snapshot, this will be true, but it
-	 * won't if e.g. you rsync the filesystems between two machines.
-	 */
-	bool preserves_inodes;
-
-	/* Path to an executable script that will be registered as a criu
-	 * "action script"
-	 */
-	char *action_script;
-
-	/* If CRIU >= 2.4 is detected the option to skip in-flight connections
-	 * will be enabled by default. The flag 'disable_skip_in_flight' will
-	 * unconditionally disable this feature. In-flight connections are
-	 * not fully established TCP connections: SYN, SYN-ACK */
-	bool disable_skip_in_flight;
-
-	/* This is the maximum file size for deleted files (which CRIU calls
-	 * "ghost" files) that will be handled. 0 indicates the CRIU default,
-	 * which at this time is 1MB.
-	 */
-	uint64_t ghost_limit;
-
-	/* Some features cannot be checked by comparing the CRIU version.
-	 * Features like dirty page tracking or userfaultfd depend on
-	 * the architecture/kernel/criu combination. This is a bitmask
-	 * in which the desired feature checks can be encoded.
-	 */
-	uint64_t features_to_check;
-};
-
-struct lxc_console_log {
-	/* Clear the console log. */
-	bool clear;
-
-	/* Retrieve the console log. */
-	bool read;
-
-	/* This specifies the maximum size to read from the ringbuffer. Setting
-	 * it to 0 means that the a read can be as big as the whole ringbuffer.
-	 * On return callers can check how many bytes were actually read.
-	 * If "read" and "clear" are set to false and a non-zero value is
-	 * specified then up to "read_max" bytes of data will be discarded from
-	 * the ringbuffer.
-	 */
-	uint64_t *read_max;
-
-	/* Data that was read from the ringbuffer. If "read_max" is 0 on return
-	 * "data" is invalid.
-	 */
-	char *data;
 };
 
 /*!
@@ -1077,33 +886,10 @@ int list_active_containers(const char *lxcpath, char ***names, struct lxc_contai
  */
 int list_all_containers(const char *lxcpath, char ***names, struct lxc_container ***cret);
 
-struct lxc_log {
-	const char *name;
-	const char *lxcpath;
-	const char *file;
-	const char *level;
-	const char *prefix;
-	bool quiet;
-};
-
-/*!
- *\brief Initialize the log
- *
- *\param log lxc log configuration.
- */
-int lxc_log_init(struct lxc_log *log);
-
 /*!
  * \brief Close log file.
  */
 void lxc_log_close(void);
-
-/*!
- * \brief Check if the configuration item is supported by this LXC instance.
- *
- * \param key Configuration item to check for.
- */
-bool lxc_config_item_is_supported(const char *key);
 
 #ifdef  __cplusplus
 }

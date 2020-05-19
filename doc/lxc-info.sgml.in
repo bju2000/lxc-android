@@ -71,7 +71,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>-c, --config <replaceable>KEY</replaceable></option>
+          <option><optional>-c <replaceable>KEY</replaceable></optional></option>
         </term>
         <listitem>
           <para>
@@ -83,7 +83,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>-s, --state</option>
+          <option><optional>-s</optional></option>
         </term>
         <listitem>
           <para>
@@ -94,7 +94,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>-p, --pid</option>
+          <option><optional>-p</optional></option>
         </term>
         <listitem>
           <para>
@@ -105,7 +105,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>-i, --ips</option>
+          <option><optional>-i</optional></option>
         </term>
         <listitem>
           <para>
@@ -116,7 +116,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>-S, --stats</option>
+          <option><optional>-S</optional></option>
         </term>
         <listitem>
           <para>
@@ -139,7 +139,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>-H, --no-humanize</option>
+          <option><optional>-H</optional></option>
         </term>
         <listitem>
           <para>
@@ -175,7 +175,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
       </varlistentry>
 
       <varlistentry>
-        <term>lxc-info -n foo -c lxc.net.0.veth.pair</term>
+        <term>lxc-info -n foo -c lxc.network.0.veth.pair</term>
         <listitem>
           <para>
             prints the veth pair name of foo.

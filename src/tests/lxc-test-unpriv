@@ -39,8 +39,8 @@ if modprobe -q overlayfs; then
 
         mount -t tmpfs none ${MOUNTDIR}
 
-        mkdir ${MOUNTDIR}/{lowerdir,upperdir,workdir,overlayfs}
-        mount -t overlayfs -o lowerdir="${MOUNTDIR}/lowerdir",upperdir="${MOUNTDIR}/upperdir",workdir="${MOUNTDIR}/workdir" none "${MOUNTDIR}/overlayfs"
+        mkdir "${MOUNTDIR}/lowerdir" "${MOUNTDIR}/upperdir" "${MOUNTDIR}/overlayfs"
+        mount -t overlayfs -o lowerdir="${MOUNTDIR}/lowerdir",upperdir="${MOUNTDIR}/upperdir" none "${MOUNTDIR}/overlayfs"
 
         CORRECT_LINK_TARGET="${MOUNTDIR}/overlayfs/dummy_file"
         exec 9> "${CORRECT_LINK_TARGET}"
@@ -65,13 +65,12 @@ fi
 which newuidmap >/dev/null 2>&1 || { echo "'newuidmap' command is missing" >&2; exit 1; }
 
 DONE=0
-KNOWN_RELEASES="precise trusty xenial yakkety zesty"
 cleanup() {
 	cd /
 
 	run_cmd lxc-stop -n c2 -k || true
 	run_cmd lxc-stop -n c1 -k || true
-	pkill -u $(id -u $TUSER) -9 || true
+	pkill -u $(id -u $TUSER) -9
 
 	sed -i '/lxcunpriv/d' /run/lxc/nics /etc/lxc/lxc-usernet
 	sed -i '/^lxcunpriv:/d' /etc/subuid /etc/subgid
@@ -105,7 +104,7 @@ fi
 trap cleanup EXIT SIGHUP SIGINT SIGTERM
 set -eu
 
-id $TUSER &> /dev/null && deluser -q --remove-home $TUSER
+deluser $TUSER && rm -Rf $HDIR || true
 useradd $TUSER
 
 mkdir -p $HDIR
@@ -116,10 +115,10 @@ usermod -v 910000-919999 -w 910000-919999 $TUSER
 
 mkdir -p $HDIR/.config/lxc/
 cat > $HDIR/.config/lxc/default.conf << EOF
-lxc.net.0.type = veth
-lxc.net.0.link = lxcbr0
-lxc.idmap = u 0 910000 9999
-lxc.idmap = g 0 910000 9999
+lxc.network.type = veth
+lxc.network.link = lxcbr0
+lxc.id_map = u 0 910000 9999
+lxc.id_map = g 0 910000 9999
 EOF
 chown -R $TUSER: $HDIR
 
@@ -148,23 +147,10 @@ elif [ -e /sys/fs/cgroup/cgmanager/sock ]; then
 	done
 else
 	for d in /sys/fs/cgroup/*; do
-		[ "$d" = "/sys/fs/cgroup/unified" ] && continue
-		[ -f $d/cgroup.clone_children ] && echo 1 > $d/cgroup.clone_children
 		[ ! -d $d/lxctest ] && mkdir $d/lxctest
 		chown -R $TUSER: $d/lxctest
 		echo $$ > $d/lxctest/tasks
 	done
-fi
-
-# default release is trusty, or the systems release if recognized
-release=trusty
-if [ -f /etc/lsb-release ]; then
-    . /etc/lsb-release
-    rels=$(ubuntu-distro-info --supported 2>/dev/null) ||
-        rels="$KNOWN_RELEASES"
-    for r in $rels; do
-        [ "$DISTRIB_CODENAME" = "$r" ] && release="$r"
-    done
 fi
 
 # Copy the download template cache if available
@@ -173,23 +159,17 @@ run_cmd mkdir -p $HDIR/.cache/lxc
     cp -R /var/cache/lxc/download $HDIR/.cache/lxc && \
     chown -R $TUSER: $HDIR/.cache/lxc
 
-run_cmd lxc-create -t download -n c1 -- -d ubuntu -r $release -a $ARCH
+run_cmd lxc-create -t download -n c1 -- -d ubuntu -r trusty -a $ARCH
+run_cmd lxc-start -n c1 -d
 
-# Make sure we can start it - twice
+p1=$(run_cmd lxc-info -n c1 -p -H)
+[ "$p1" != "-1" ] || { echo "Failed to start container c1"; false; }
 
-for count in `seq 1 2`; do
-    run_cmd lxc-start -n c1 -d
+run_cmd lxc-info -n c1
+run_cmd lxc-attach -n c1 -- /bin/true
 
-    p1=$(run_cmd lxc-info -n c1 -p -H)
-    [ "$p1" != "-1" ] || { echo "Failed to start container c1 (run $count)"; false; }
-
-    run_cmd lxc-info -n c1
-    run_cmd lxc-attach -n c1 -- /bin/true
-
-    run_cmd lxc-stop -n c1 -k
-done
-
-run_cmd lxc-copy -s -n c1 -N c2
+run_cmd lxc-stop -n c1 -k
+run_cmd lxc-clone -s -o c1 -n c2
 run_cmd lxc-start -n c2 -d
 p1=$(run_cmd lxc-info -n c2 -p -H)
 [ "$p1" != "-1" ] || { echo "Failed to start container c2"; false; }

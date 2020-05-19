@@ -26,7 +26,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
 <!DOCTYPE refentry PUBLIC @docdtd@ [
 
-<!ENTITY commonoptions SYSTEM "@builddir@/common_options.sgml">
 <!ENTITY seealso SYSTEM "@builddir@/see_also.sgml">
 ]>
 
@@ -51,16 +50,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
     <cmdsynopsis>
       <command>lxc-ls</command>
       <arg choice="opt">-1</arg>
+      <arg choice="opt">-P <replaceable>lxcpath</replaceable></arg>
       <arg choice="opt">--active</arg>
       <arg choice="opt">--frozen</arg>
       <arg choice="opt">--running</arg>
       <arg choice="opt">--stopped</arg>
-      <arg choice="opt">--defined</arg>
       <arg choice="opt">-f</arg>
       <arg choice="opt">-F <replaceable>format</replaceable></arg>
-      <arg choice="opt">-g <replaceable>groups</replaceable></arg>
-      <arg choice="opt">--nesting=<replaceable>NUM</replaceable></arg>
-      <arg choice="opt">--filter=<replaceable>regex</replaceable></arg>
+      <arg choice="opt">--nesting</arg>
+      <arg choice="opt">filter</arg>
+      <arg choice="opt">--version</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -77,7 +76,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
     <variablelist>
       <varlistentry>
         <term>
-          <option>-1</option>
+          <option><optional>-1</optional></option>
         </term>
         <listitem>
           <para>
@@ -88,7 +87,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>--active</option>
+          <option><optional>-P, --lxcpath</optional></option>
+        </term>
+        <listitem>
+          <para>
+            Use an alternate container path. The default is @LXCPATH@.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <option><optional>--active</optional></option>
         </term>
         <listitem>
           <para>
@@ -99,7 +109,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>--frozen</option>
+          <option><optional>--frozen</optional></option>
         </term>
         <listitem>
           <para>
@@ -110,7 +120,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>--running</option>
+          <option><optional>--running</optional></option>
         </term>
         <listitem>
           <para>
@@ -121,7 +131,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>--stopped</option>
+          <option><optional>--stopped</optional></option>
         </term>
         <listitem>
           <para>
@@ -132,18 +142,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>--defined</option>
-        </term>
-        <listitem>
-          <para>
-            List only defined containers.
-          </para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term>
-          <option>-f,--fancy</option>
+          <option><optional>-f, --fancy</optional></option>
         </term>
         <listitem>
           <para>
@@ -154,11 +153,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>-F,--fancy-format <replaceable>format</replaceable></option>
+          <option><optional>-F, --fancy-format <replaceable>format</replaceable></optional></option>
         </term>
         <listitem>
           <para>
-            Comma separated list of columns to show in the fancy output.
+            Comma separated list of column to show in the fancy output.
             The list of accepted and default fields is listed in --help.
           </para>
         </listitem>
@@ -166,38 +165,34 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
       <varlistentry>
         <term>
-          <option>-g,--groups <replaceable>groups</replaceable></option>
+          <option><optional>--nesting</optional></option>
         </term>
         <listitem>
           <para>
-            Comma separated list of groups the container must have to be displayed.
-            The parameter may be passed multiple times.
+            Show nested containers.
           </para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term>
-          <option>--nesting=<replaceable>NUM</replaceable></option>
+          <option><optional>filter</optional></option>
         </term>
         <listitem>
           <para>
-            Show nested containers. The number of nesting levels to be shown can
-            be specified by passing a number as argument.
+            The filter passed to <command>lxc-ls</command> will be
+            applied to the container name. The format is a regular expression.
           </para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
         <term>
-          <option>--filter=<replaceable>regex</replaceable></option>
+          <option><optional>--version</optional></option>
         </term>
         <listitem>
           <para>
-            The regular expression passed to <command>lxc-ls</command> will be
-            applied to the container name. The format is a POSIX extended
-            regular expression. It can also be given as additional argument
-            without explicitly using <option>--filter</option>.
+            Show the version number.
           </para>
         </listitem>
       </varlistentry>
@@ -228,23 +223,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
     </variablelist>
   </refsect1>
 
-  &commonoptions;
-
   &seealso;
 
   <refsect1>
-    <title>History</title>
-    Written originally as a shell script by Daniel Lezcano and Serge Hallyn.
-    Later reimplemented and extended in Python by Stéphane Graber and then
-    reimplemented and extended in C by Christian Brauner.
-  </refsect1>
-
-  <refsect1>
     <title>Author</title>
-    <para>Christian Brauner <email>christian.brauner@mailbox.org</email>,
-    Stéphane Graber <email>stgraber@ubuntu.com</email></para>
+    <para>Stéphane Graber <email>stgraber@ubuntu.com</email></para>
   </refsect1>
-
 </refentry>
 
 <!-- Keep this comment at the end of the file

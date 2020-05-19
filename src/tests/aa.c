@@ -57,7 +57,7 @@ static int test_attach_write_file(void* payload)
 
 /*
  * try opening a file attached to a container.  Return 0 on open fail.  Return
- * 1 if the file open succeeded.  Return -1 if attach itself failed - perhaps an
+ * 1 if the file open succeeded.  Return -1 if attach itself failed - perhas an
  * older kernel.
  */
 static int do_test_file_open(struct lxc_container *c, char *fnam)
@@ -94,7 +94,7 @@ static int do_test_file_open(struct lxc_container *c, char *fnam)
 		fret = 0;
 
 err2:
-	(void)wait_for_pid(pid);
+	wait_for_pid(pid);
 err1:
 	close(pipefd[0]);
 	close(pipefd[1]);
@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%d: %s thought it was defined\n", __LINE__, MYNAME);
 		goto err;
 	}
-	if (!c->set_config_item(c, "lxc.net.0.type", "empty")) {
+	if (!c->set_config_item(c, "lxc.network.type", "empty")) {
 		fprintf(stderr, "%s: %d: failed to set network type\n", __FILE__, __LINE__);
 		goto err;
 	}

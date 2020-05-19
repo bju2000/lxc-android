@@ -20,38 +20,31 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
-#include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/file.h>
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <time.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <sys/file.h>
 
-#include "cgroup.h"
-#include "commands.h"
-#include "commands_utils.h"
-#include "config.h"
-#include "log.h"
 #include "lxc.h"
-#include "monitor.h"
+#include "log.h"
 #include "start.h"
-#include "utils.h"
+#include "cgroup.h"
+#include "monitor.h"
+#include "commands.h"
+#include "config.h"
 
-lxc_log_define(state, lxc);
+lxc_log_define(lxc_state, lxc);
 
-static const char *const strstate[] = {
-    "STOPPED",  "STARTING", "RUNNING", "STOPPING",
-    "ABORTING", "FREEZING", "FROZEN",  "THAWED",
+static const char * const strstate[] = {
+	"STOPPED", "STARTING", "RUNNING", "STOPPING",
+	"ABORTING", "FREEZING", "FROZEN", "THAWED",
 };
 
 const char *lxc_state2str(lxc_state_t state)
@@ -76,20 +69,26 @@ lxc_state_t lxc_str2state(const char *state)
 
 lxc_state_t lxc_getstate(const char *name, const char *lxcpath)
 {
-	return lxc_cmd_get_state(name, lxcpath);
+	extern lxc_state_t freezer_state(const char *name, const char *lxcpath);
+
+	lxc_state_t state = freezer_state(name, lxcpath);
+	if (state != FROZEN && state != FREEZING)
+		state = lxc_cmd_get_state(name, lxcpath);
+	return state;
 }
 
-static int fillwaitedstates(const char *strstates, lxc_state_t *states)
+static int fillwaitedstates(const char *strstates, int *states)
 {
-	char *token;
-	char *strstates_dup;
+	char *token, *saveptr = NULL;
+	char *strstates_dup = strdup(strstates);
 	int state;
 
-	strstates_dup = strdup(strstates);
 	if (!strstates_dup)
 		return -1;
 
-	lxc_iterate_parts(token, strstates_dup, "|") {
+	token = strtok_r(strstates_dup, "|", &saveptr);
+	while (token) {
+
 		state = lxc_str2state(token);
 		if (state < 0) {
 			free(strstates_dup);
@@ -97,47 +96,102 @@ static int fillwaitedstates(const char *strstates, lxc_state_t *states)
 		}
 
 		states[state] = 1;
+
+		token = strtok_r(NULL, "|", &saveptr);
 	}
 	free(strstates_dup);
 	return 0;
 }
 
-int lxc_wait(const char *lxcname, const char *states, int timeout,
-	     const char *lxcpath)
+extern int lxc_wait(const char *lxcname, const char *states, int timeout, const char *lxcpath)
 {
-	int state = -1;
-	lxc_state_t s[MAX_STATE] = {0};
+	struct lxc_msg msg;
+	int state, ret;
+	int s[MAX_STATE] = { }, fd;
 
 	if (fillwaitedstates(states, s))
 		return -1;
 
-	for (;;) {
-		struct timespec onesec = {
-		    .tv_sec = 1,
-		    .tv_nsec = 0,
-		};
-
-		state = lxc_cmd_sock_get_state(lxcname, lxcpath, s, timeout);
-		if (state >= 0)
-			break;
-
-		if (errno != ECONNREFUSED) {
-			SYSERROR("Failed to receive state from monitor");
-			return -1;
-		}
-
-		if (timeout > 0)
-			timeout--;
-
-		if (timeout == 0)
-			return -1;
-
-		(void)nanosleep(&onesec, NULL);
-	}
-
-	TRACE("Retrieved state of container %s", lxc_state2str(state));
-	if (!s[state])
+	if (lxc_monitord_spawn(lxcpath))
 		return -1;
 
-	return 0;
+	fd = lxc_monitor_open(lxcpath);
+	if (fd < 0)
+		return -1;
+
+	/*
+	 * if container present,
+	 * then check if already in requested state
+	 */
+	ret = -1;
+	state = lxc_getstate(lxcname, lxcpath);
+	if (state < 0) {
+		goto out_close;
+	} else if ((state >= 0) && (s[state])) {
+		ret = 0;
+		goto out_close;
+	}
+
+	for (;;) {
+		int elapsed_time, curtime = 0;
+		struct timeval tv;
+		int stop = 0;
+		int retval;
+
+		if (timeout != -1) {
+			retval = gettimeofday(&tv, NULL);
+			if (retval)
+				goto out_close;
+			curtime = tv.tv_sec;
+		}
+		if (lxc_monitor_read_timeout(fd, &msg, timeout) < 0) {
+			/* try again if select interrupted by signal */
+			if (errno != EINTR)
+				goto out_close;
+		}
+
+		if (timeout != -1) {
+			retval = gettimeofday(&tv, NULL);
+			if (retval)
+				goto out_close;
+			elapsed_time = tv.tv_sec - curtime;
+			if (timeout - elapsed_time <= 0)
+				stop = 1;
+			timeout -= elapsed_time;
+		}
+
+		if (strcmp(lxcname, msg.name)) {
+			if (stop) {
+				ret = -2;
+				goto out_close;
+			}
+			continue;
+		}
+
+		switch (msg.type) {
+		case lxc_msg_state:
+			if (msg.value < 0 || msg.value >= MAX_STATE) {
+				ERROR("Receive an invalid state number '%d'",
+					msg.value);
+				goto out_close;
+			}
+
+			if (s[msg.value]) {
+				ret = 0;
+				goto out_close;
+			}
+			break;
+		default:
+			if (stop) {
+				ret = -2;
+				goto out_close;
+			}
+			/* just ignore garbage */
+			break;
+		}
+	}
+
+out_close:
+	lxc_monitor_close(fd);
+	return ret;
 }

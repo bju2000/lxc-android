@@ -41,7 +41,6 @@ int main(int argc, char *argv[])
 		lxc_container_put(c);
 		c = NULL;
 	}
-
 	if (c2) {
 		c2->destroy(c2);
 		lxc_container_put(c2);
@@ -53,14 +52,11 @@ int main(int argc, char *argv[])
 		ret = 1;
 		goto out;
 	}
-
 	c->save_config(c, NULL);
-
 	if (!c->createl(c, "busybox", NULL, NULL, 0, NULL)) {
 		fprintf(stderr, "%d: failed to create a container\n", __LINE__);
 		goto out;
 	}
-
 	c->load_config(c, NULL);
 
 	if (!c->is_defined(c)) {
@@ -96,14 +92,12 @@ int main(int argc, char *argv[])
 			c2->destroy(c2);
 		lxc_container_put(c2);
 	}
-
 	c2 = lxc_container_new("clonetest-o1", NULL);
 	if (c2) {
 		if (c2->is_defined(c2))
 			c2->destroy(c2);
 		lxc_container_put(c2);
 	}
-
 	c2 = lxc_container_new("clonetest-o2", NULL);
 	if (c2) {
 		if (c2->is_defined(c2))
@@ -118,7 +112,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "failed loading clonetestlvm1\n");
 		goto out;
 	}
-
 	if (!c->is_defined(c)) {
 		fprintf(stderr, "clonetestlvm1 does not exist, skipping lvm tests\n");
 		ret = 0;
@@ -145,7 +138,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "lvm clone failed\n");
 		goto out;
 	}
-
 	lxc_container_put(c2);
 	lxc_container_put(c);
 	c = c2 = NULL;
@@ -174,16 +166,13 @@ out:
 	if (c3) {
 		lxc_container_put(c3);
 	}
-
 	if (c2) {
 		c2->destroy(c2);
 		lxc_container_put(c2);
 	}
-
 	if (c) {
 		c->destroy(c);
 		lxc_container_put(c);
 	}
-
 	exit(ret);
 }

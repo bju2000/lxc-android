@@ -94,12 +94,11 @@ by KATOH Yasufumi <karma at jazz.email.ne.jp>
     <para>
       <!--
       If no command is specified, <command>lxc-start</command> will
-      use the command defined in lxc.init.cmd or if not set, the default
+      use the default
       <command>"/sbin/init"</command> command to run a system
       container.
       -->
-      もし command が指定されない場合は、<command>lxc-start</command> はシステムコンテナを実行するためのコマンドとして、lxc.init.cmd で設定されたコマンドを使用します。
-      もし lxc.init.cmd が設定されていない場合は、デフォルトで <command>"/sbin/init"</command> を使用します。
+      もし command が指定されない場合は、<command>lxc-start</command> はシステムコンテナを実行するためのコマンドとして、デフォルトで <command>"/sbin/init"</command> を使用します。
     </para>
 
   </refsect1>
@@ -123,7 +122,7 @@ by KATOH Yasufumi <karma at jazz.email.ne.jp>
             -->
             コンテナをデーモンとして実行します。
             コンテナはそれ以上の tty を持ちませんので、もしエラーが起きても何も表示されません。
-            エラーのチェックにはログファイルを使用することができます。(これがデフォルトのモードです)
+            エラーのチェックにはログファイルを使用することができます。
 	  </para>
 	</listitem>
       </varlistentry>
@@ -139,7 +138,7 @@ by KATOH Yasufumi <karma at jazz.email.ne.jp>
 	    console will be attached to the current tty and signals will be routed
 	    directly to the container.
             -->
-            コンテナをフォアグラウンドで実行します。このモードでは、コンテナコンソールは現在使用中の tty に割り当てられ、シグナルはコンテナに直接送られます。
+            コンテナをフォアグラウンドで実行します。このモードでは、コンテナコンソールは現在使用中の tty に割り当てられ、シグナルはコンテナに直接送られます。(これがデフォルトのモードです)
 	  </para>
 	</listitem>
       </varlistentry>

@@ -25,12 +25,7 @@
 #define __LXC_MAINLOOP_H
 
 #include <stdint.h>
-
 #include "list.h"
-
-#define LXC_MAINLOOP_ERROR -1
-#define LXC_MAINLOOP_CONTINUE 0
-#define LXC_MAINLOOP_CLOSE 1
 
 struct lxc_epoll_descr {
 	int epfd;

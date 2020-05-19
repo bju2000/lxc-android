@@ -18,24 +18,20 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
-#include <errno.h>
-#include <fcntl.h>
+#define _GNU_SOURCE
 #include <malloc.h>
-#include <pthread.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/file.h>
+#include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <pthread.h>
 
 #include <lxc/lxccontainer.h>
 
-#include "config.h"
-#include "log.h"
 #include "lxclock.h"
 #include "utils.h"
+#include "log.h"
 
 #ifdef MUTEX_DEBUGGING
 #include <execinfo.h>
@@ -43,7 +39,12 @@
 
 #define MAX_STACKDEPTH 25
 
-lxc_log_define(lxclock, lxc);
+#define OFLAG (O_CREAT | O_RDWR)
+#define SEMMODE 0660
+#define SEMVALUE 1
+#define SEMVALUE_LOCKED 0
+
+lxc_log_define(lxc_lock, lxc);
 
 #ifdef MUTEX_DEBUGGING
 static pthread_mutex_t thread_mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
@@ -58,13 +59,13 @@ static inline void dump_stacktrace(void)
 	size = backtrace(array, MAX_STACKDEPTH);
 	strings = backtrace_symbols(array, size);
 
-	/* Using fprintf here as our logging module is not thread safe. */
-	fprintf(stderr, "\tObtained %zu stack frames\n", size);
+	// Using fprintf here as our logging module is not thread safe
+	fprintf(stderr, "\tObtained %zu stack frames.\n", size);
 
 	for (i = 0; i < size; i++)
 		fprintf(stderr, "\t\t%s\n", strings[i]);
 
-	free(strings);
+	free (strings);
 }
 #else
 static pthread_mutex_t thread_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -76,11 +77,10 @@ static void lock_mutex(pthread_mutex_t *l)
 {
 	int ret;
 
-	ret = pthread_mutex_lock(l);
-	if (ret != 0) {
-		SYSERROR("Failed to acquire mutex");
+	if ((ret = pthread_mutex_lock(l)) != 0) {
+		fprintf(stderr, "pthread_mutex_lock returned:%d %s\n", ret, strerror(ret));
 		dump_stacktrace();
-		_exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -88,19 +88,19 @@ static void unlock_mutex(pthread_mutex_t *l)
 {
 	int ret;
 
-	ret = pthread_mutex_unlock(l);
-	if (ret != 0) {
-		SYSERROR("Failed to release mutex");
+	if ((ret = pthread_mutex_unlock(l)) != 0) {
+		fprintf(stderr, "pthread_mutex_unlock returned:%d %s\n", ret, strerror(ret));
 		dump_stacktrace();
-		_exit(EXIT_FAILURE);
+		exit(EXIT_FAILURE);
 	}
 }
 
 static char *lxclock_name(const char *p, const char *n)
 {
 	int ret;
-	size_t len;
-	char *dest, *rundir;
+	int len;
+	char *dest;
+	char *rundir;
 
 	/* lockfile will be:
 	 * "/run" + "/lxc/lock/$lxcpath/$lxcname + '\0' if root
@@ -108,28 +108,24 @@ static char *lxclock_name(const char *p, const char *n)
 	 * $XDG_RUNTIME_DIR + "/lxc/lock/$lxcpath/$lxcname + '\0' if non-root
 	 */
 
-	/* length of "/lxc/lock/" + $lxcpath + "/" + "." + $lxcname + '\0' */
-	len = STRLITERALLEN("/lxc/lock/") + strlen(n) + strlen(p) + 3;
-
+	/* length of "/lxc/lock/" + $lxcpath + "/" + $lxcname + '\0' */
+	len = strlen("/lxc/lock/") + strlen(n) + strlen(p) + 2;
 	rundir = get_rundir();
 	if (!rundir)
 		return NULL;
-
 	len += strlen(rundir);
 
-	dest = malloc(len);
-	if (!dest) {
+	if ((dest = malloc(len)) == NULL) {
 		free(rundir);
 		return NULL;
 	}
 
 	ret = snprintf(dest, len, "%s/lxc/lock/%s", rundir, p);
-	if (ret < 0 || (size_t)ret >= len) {
+	if (ret < 0 || ret >= len) {
 		free(dest);
 		free(rundir);
 		return NULL;
 	}
-
 	ret = mkdir_p(dest, 0755);
 	if (ret < 0) {
 		free(dest);
@@ -137,31 +133,28 @@ static char *lxclock_name(const char *p, const char *n)
 		return NULL;
 	}
 
-	ret = snprintf(dest, len, "%s/lxc/lock/%s/.%s", rundir, p, n);
+	ret = snprintf(dest, len, "%s/lxc/lock/%s/%s", rundir, p, n);
 	free(rundir);
-	if (ret < 0 || (size_t)ret >= len) {
+	if (ret < 0 || ret >= len) {
 		free(dest);
 		return NULL;
 	}
-
 	return dest;
 }
 
 static sem_t *lxc_new_unnamed_sem(void)
 {
-	int ret;
 	sem_t *s;
+	int ret;
 
 	s = malloc(sizeof(*s));
 	if (!s)
 		return NULL;
-
 	ret = sem_init(s, 0, 1);
-	if (ret < 0) {
+	if (ret) {
 		free(s);
 		return NULL;
 	}
-
 	return s;
 }
 
@@ -171,7 +164,7 @@ struct lxc_lock *lxc_newlock(const char *lxcpath, const char *name)
 
 	l = malloc(sizeof(*l));
 	if (!l)
-		goto on_error;
+		goto out;
 
 	if (!name) {
 		l->type = LXC_LOCK_ANON_SEM;
@@ -180,8 +173,7 @@ struct lxc_lock *lxc_newlock(const char *lxcpath, const char *name)
 			free(l);
 			l = NULL;
 		}
-
-		goto on_error;
+		goto out;
 	}
 
 	l->type = LXC_LOCK_FLOCK;
@@ -189,118 +181,98 @@ struct lxc_lock *lxc_newlock(const char *lxcpath, const char *name)
 	if (!l->u.f.fname) {
 		free(l);
 		l = NULL;
-		goto on_error;
+		goto out;
 	}
-
 	l->u.f.fd = -1;
 
-on_error:
+out:
 	return l;
 }
 
 int lxclock(struct lxc_lock *l, int timeout)
 {
-	struct flock lk;
 	int ret = -1, saved_errno = errno;
+	struct flock lk;
 
 	switch(l->type) {
 	case LXC_LOCK_ANON_SEM:
 		if (!timeout) {
 			ret = sem_wait(l->u.sem);
-			if (ret < 0)
+			if (ret == -1)
 				saved_errno = errno;
 		} else {
 			struct timespec ts;
-
-			ret = clock_gettime(CLOCK_REALTIME, &ts);
-			if (ret < 0) {
+			if (clock_gettime(CLOCK_REALTIME, &ts) == -1) {
 				ret = -2;
-				goto on_error;
+				goto out;
 			}
-
 			ts.tv_sec += timeout;
 			ret = sem_timedwait(l->u.sem, &ts);
-			if (ret < 0)
+			if (ret == -1)
 				saved_errno = errno;
 		}
-
 		break;
 	case LXC_LOCK_FLOCK:
 		ret = -2;
 		if (timeout) {
-			ERROR("Timeouts are not supported with file locks");
-			goto on_error;
+			ERROR("Error: timeout not supported with flock");
+			goto out;
 		}
-
 		if (!l->u.f.fname) {
-			ERROR("No filename set for file lock");
-			goto on_error;
+			ERROR("Error: filename not set for flock");
+			goto out;
 		}
-
 		if (l->u.f.fd == -1) {
-			l->u.f.fd = open(l->u.f.fname, O_CREAT | O_RDWR | O_NOFOLLOW | O_CLOEXEC | O_NOCTTY, S_IWUSR | S_IRUSR);
+			l->u.f.fd = open(l->u.f.fname, O_RDWR|O_CREAT,
+					S_IWUSR | S_IRUSR);
 			if (l->u.f.fd == -1) {
-				SYSERROR("Failed to open \"%s\"", l->u.f.fname);
+				ERROR("Error opening %s", l->u.f.fname);
 				saved_errno = errno;
-				goto on_error;
+				goto out;
 			}
 		}
-
-		memset(&lk, 0, sizeof(struct flock));
-
 		lk.l_type = F_WRLCK;
 		lk.l_whence = SEEK_SET;
-
-		ret = fcntl(l->u.f.fd, F_OFD_SETLKW, &lk);
-		if (ret < 0) {
-			if (errno == EINVAL)
-				ret = flock(l->u.f.fd, LOCK_EX);
+		lk.l_start = 0;
+		lk.l_len = 0;
+		ret = fcntl(l->u.f.fd, F_SETLKW, &lk);
+		if (ret == -1)
 			saved_errno = errno;
-		}
-
 		break;
 	}
 
-on_error:
+out:
 	errno = saved_errno;
 	return ret;
 }
 
 int lxcunlock(struct lxc_lock *l)
 {
-	struct flock lk;
 	int ret = 0, saved_errno = errno;
+	struct flock lk;
 
-	switch (l->type) {
+	switch(l->type) {
 	case LXC_LOCK_ANON_SEM:
-		if (!l->u.sem) {
+		if (!l->u.sem)
 			ret = -2;
-		} else {
+		else {
 			ret = sem_post(l->u.sem);
 			saved_errno = errno;
 		}
-
 		break;
 	case LXC_LOCK_FLOCK:
 		if (l->u.f.fd != -1) {
-			memset(&lk, 0, sizeof(struct flock));
-
 			lk.l_type = F_UNLCK;
 			lk.l_whence = SEEK_SET;
-
-			ret = fcntl(l->u.f.fd, F_OFD_SETLK, &lk);
-			if (ret < 0) {
-				if (errno == EINVAL)
-					ret = flock(l->u.f.fd, LOCK_EX | LOCK_NB);
+			lk.l_start = 0;
+			lk.l_len = 0;
+			ret = fcntl(l->u.f.fd, F_SETLK, &lk);
+			if (ret < 0)
 				saved_errno = errno;
-			}
-
 			close(l->u.f.fd);
 			l->u.f.fd = -1;
-		} else {
+		} else
 			ret = -2;
-		}
-
 		break;
 	}
 
@@ -319,7 +291,6 @@ void lxc_putlock(struct lxc_lock *l)
 {
 	if (!l)
 		return;
-
 	switch(l->type) {
 	case LXC_LOCK_ANON_SEM:
 		if (l->u.sem) {
@@ -327,20 +298,16 @@ void lxc_putlock(struct lxc_lock *l)
 			free(l->u.sem);
 			l->u.sem = NULL;
 		}
-
 		break;
 	case LXC_LOCK_FLOCK:
 		if (l->u.f.fd != -1) {
 			close(l->u.f.fd);
 			l->u.f.fd = -1;
 		}
-
 		free(l->u.f.fname);
 		l->u.f.fname = NULL;
-
 		break;
 	}
-
 	free(l);
 }
 
@@ -353,6 +320,23 @@ void process_unlock(void)
 {
 	unlock_mutex(&thread_mutex);
 }
+
+/* One thread can do fork() while another one is holding a mutex.
+ * There is only one thread in child just after the fork(), so no one will ever release that mutex.
+ * We setup a "child" fork handler to unlock the mutex just after the fork().
+ * For several mutex types, unlocking an unlocked mutex can lead to undefined behavior.
+ * One way to deal with it is to setup "prepare" fork handler
+ * to lock the mutex before fork() and both "parent" and "child" fork handlers
+ * to unlock the mutex.
+ * This forbids doing fork() while explicitly holding the lock.
+ */
+#ifdef HAVE_PTHREAD_ATFORK
+__attribute__((constructor))
+static void process_lock_setup_atfork(void)
+{
+	pthread_atfork(process_lock, process_unlock, process_unlock);
+}
+#endif
 
 int container_mem_lock(struct lxc_container *c)
 {
@@ -368,16 +352,12 @@ int container_disk_lock(struct lxc_container *c)
 {
 	int ret;
 
-	ret = lxclock(c->privlock, 0);
-	if (ret < 0)
+	if ((ret = lxclock(c->privlock, 0)))
 		return ret;
-
-	ret = lxclock(c->slock, 0);
-	if (ret < 0) {
+	if ((ret = lxclock(c->slock, 0))) {
 		lxcunlock(c->privlock);
 		return ret;
 	}
-
 	return 0;
 }
 

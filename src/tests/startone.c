@@ -39,30 +39,26 @@ static int destroy_container(void)
 		perror("fork");
 		return -1;
 	}
-
 	if (pid == 0) {
-		execlp("lxc-destroy", "lxc-destroy", "-f", "-n", MYNAME, NULL);
-		exit(EXIT_FAILURE);
+		ret = execlp("lxc-destroy", "lxc-destroy", "-f", "-n", MYNAME, NULL);
+		// Should not return
+		perror("execl");
+		exit(1);
 	}
-
 again:
 	ret = waitpid(pid, &status, 0);
 	if (ret == -1) {
 		if (errno == EINTR)
 			goto again;
-
 		perror("waitpid");
 		return -1;
 	}
-
 	if (ret != pid)
 		goto again;
-
 	if (!WIFEXITED(status))  { // did not exit normally
 		fprintf(stderr, "%d: lxc-create exited abnormally\n", __LINE__);
 		return -1;
 	}
-
 	return WEXITSTATUS(status);
 }
 
@@ -75,30 +71,26 @@ static int create_container(void)
 		perror("fork");
 		return -1;
 	}
-
 	if (pid == 0) {
-		execlp("lxc-create", "lxc-create", "-t", "busybox", "-n", MYNAME, NULL);
-		exit(EXIT_FAILURE);
+		ret = execlp("lxc-create", "lxc-create", "-t", "busybox", "-n", MYNAME, NULL);
+		// Should not return
+		perror("execl");
+		exit(1);
 	}
-
 again:
 	ret = waitpid(pid, &status, 0);
 	if (ret == -1) {
 		if (errno == EINTR)
 			goto again;
-
 		perror("waitpid");
 		return -1;
 	}
-
 	if (ret != pid)
 		goto again;
-
 	if (!WIFEXITED(status))  { // did not exit normally
 		fprintf(stderr, "%d: lxc-create exited abnormally\n", __LINE__);
 		return -1;
 	}
-
 	return WEXITSTATUS(status);
 }
 
@@ -112,7 +104,6 @@ int main(int argc, char *argv[])
 	int len;
 
 	ret = 1;
-
 	/* test a real container */
 	c = lxc_container_new(MYNAME, NULL);
 	if (!c) {
@@ -147,7 +138,7 @@ int main(int argc, char *argv[])
 	sprintf(buf, "0");
 	b = c->set_cgroup_item(c, "cpuset.cpus", buf);
 	if (b) {
-		fprintf(stderr, "%d: %s not running but could set cgroup settings\n", __LINE__, MYNAME);
+		fprintf(stderr, "%d: %s not running but coudl set cgroup settings\n", __LINE__, MYNAME);
 		goto out;
 	}
 
@@ -163,8 +154,8 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	if (!c->set_config_item(c, "lxc.uts.name", "bobo")) {
-		fprintf(stderr, "%d: failed setting lxc.uts.name\n", __LINE__);
+	if (!c->set_config_item(c, "lxc.utsname", "bobo")) {
+		fprintf(stderr, "%d: failed setting lxc.utsname\n", __LINE__);
 		goto out;
 	}
 
@@ -180,7 +171,6 @@ int main(int argc, char *argv[])
 	}
 
 	sleep(3);
-
 	s = c->state(c);
 	if (!s || strcmp(s, "RUNNING")) {
 		fprintf(stderr, "%d: %s is in state %s, not in RUNNING.\n", __LINE__, c->name, s ? s : "undefined");
@@ -206,7 +196,7 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	sprintf(buf, "XXX");
+    sprintf(buf, "XXX");
 	len = c->get_cgroup_item(c, "freezer.state", buf, 200);
 	if (len <= 0 || (strcmp(buf, "FREEZING\n") && strcmp(buf, "FROZEN\n"))) {
 		fprintf(stderr, "%d: not able to get freezer.state (len %d buf %s)\n", __LINE__, len, buf);

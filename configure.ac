@@ -1,22 +1,14 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-m4_define([lxc_devel], 0)
-m4_define([lxc_version_major], 3)
+m4_define([lxc_version_major], 1)
 m4_define([lxc_version_minor], 0)
-m4_define([lxc_version_micro], 3)
+m4_define([lxc_version_micro], 11)
 m4_define([lxc_version_beta], [])
-
-m4_define([lxc_abi_major], 1)
-m4_define([lxc_abi_minor], 4)
-m4_define([lxc_abi_micro], 0)
-m4_define([lxc_abi], [lxc_abi_major.lxc_abi_minor.lxc_abi_micro])
 
 m4_define([lxc_version_base], [lxc_version_major.lxc_version_minor.lxc_version_micro])
 m4_define([lxc_version],
-	  [ifelse(lxc_devel, 1,
-        ifelse(lxc_version_beta, [], [lxc_version_base], [lxc_version_base.lxc_version_beta])-devel,
-        ifelse(lxc_version_beta, [], [lxc_version_base], [lxc_version_base.lxc_version_beta]))])
+	  [ifelse(lxc_version_beta, [], [lxc_version_base], [lxc_version_base.lxc_version_beta])])
 
 AC_INIT([lxc], [lxc_version])
 
@@ -30,52 +22,25 @@ AC_SUBST([LXC_VERSION_MAJOR], [lxc_version_major])
 AC_SUBST([LXC_VERSION_MINOR], [lxc_version_minor])
 AC_SUBST([LXC_VERSION_MICRO], [lxc_version_micro])
 AC_SUBST([LXC_VERSION], [lxc_version])
-AC_SUBST([LXC_DEVEL], [lxc_devel])
-
-AC_SUBST([LXC_ABI_MAJOR], [lxc_abi_major])
-AC_SUBST([LXC_ABI_MINOR], [lxc_abi_minor])
-AC_SUBST([LXC_ABI_MICRO], [lxc_abi_micro])
-AC_SUBST([LXC_ABI], [lxc_abi])
 
 AC_CONFIG_SRCDIR([configure.ac])
 AC_CONFIG_AUX_DIR([config])
 AC_CONFIG_HEADERS([src/config.h])
-AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability subdir-objects])
+AM_INIT_AUTOMAKE([-Wall -Wno-portability subdir-objects])
 AC_CANONICAL_HOST
 AM_PROG_CC_C_O
 AC_GNU_SOURCE
 
-# Test if we have a new enough compiler.
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-#define GCC_VERSION \
-	(__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
-
-#define CLANG_VERSION \
-	(__clang_major__ * 10000 + __clang_minor__ * 100 + __clang_patchlevel__)
-
-#if GCC_VERSION < 40700 && CLANG_VERSION < 10000
-#error Sorry, your compiler is too old - please upgrade it
-#endif
-	]])], [valid_compiler=yes], [valid_compiler=no])
-if test "x$valid_compiler" = "xno"; then
-	AC_MSG_ERROR([Sorry, your compiler is too old - please upgrade it])
-fi
-
-# libtool
-LT_INIT
-AC_SUBST([LIBTOOL_DEPS])
-
 # Detect the distribution. This is used for the default configuration and
 # for some distro-specific build options.
 AC_MSG_CHECKING([host distribution])
-AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO], [Specify the Linux distribution to target: One of redhat, redhatenterpriseserver, oracle, centos, fedora, suse, gentoo, debian, arch, slackware, plamo, paldo, openmandriva, pardus, sparclinux, altlinux.]))
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO], [Specify the Linux distribution to target: One of redhat, oracle, centos, fedora, suse, gentoo, debian, arch, slackware, paldo, openmandriva or pardus.]))
 if type lsb_release >/dev/null 2>&1 && test "z$with_distro" = "z"; then
 	with_distro=`lsb_release -is`
 fi
 if test "z$with_distro" = "z"; then
 	AC_CHECK_FILE(/etc/redhat-release,with_distro="redhat")
 	AC_CHECK_FILE(/etc/oracle-release,with_distro="oracle")
-	AC_CHECK_FILE(/etc/sparclinux-release,with_distro="sparclinux")
 	AC_CHECK_FILE(/etc/centos-release,with_distro="centos")
 	AC_CHECK_FILE(/etc/fedora-release,with_distro="fedora")
 	AC_CHECK_FILE(/etc/SuSE-release,with_distro="suse")
@@ -83,35 +48,25 @@ if test "z$with_distro" = "z"; then
 	AC_CHECK_FILE(/etc/debian_version,with_distro="debian")
 	AC_CHECK_FILE(/etc/arch-release,with_distro="arch")
 	AC_CHECK_FILE(/etc/slackware-version,with_distro="slackware")
-	AC_CHECK_FILE(/etc/plamo-version,with_distro="plamo")
 	AC_CHECK_FILE(/etc/frugalware-release,with_distro="frugalware")
 	AC_CHECK_FILE(/etc/mandrakelinux-release, with_distro="openmandriva")
 	AC_CHECK_FILE(/etc/mandriva-release,with_distro="openmandriva")
 	AC_CHECK_FILE(/etc/pardus-release,with_distro="pardus")
-	AC_CHECK_FILE(/etc/altlinux-release,with_distro="altlinux")
-	AC_CHECK_FILE(/etc/pld-release,with_distro="pld")
 fi
 with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]'`
-
-if test "z$with_distro" = "zforsparc"; then
-	with_distro="sparclinux"
-fi
 
 if test "z$with_distro" = "z"; then
 	with_distro="unknown"
 fi
 case $with_distro in
 	ubuntu|raspbian)
-		distroconf=default.conf.lxcbr
-		distrosysconf="$sysconfdir/default"
+		distroconf=default.conf.ubuntu
 		;;
-	redhat|redhatenterpriseserver|centos|fedora|oracle|oracleserver|sparclinux|altlinux|suse|opensuse*|plamo|pld)
-		distroconf=default.conf.lxcbr
-		distrosysconf="$sysconfdir/sysconfig"
+	redhat|centos|fedora|oracle|oracleserver)
+		distroconf=default.conf.libvirt
 		;;
 	*)
 		distroconf=default.conf.unknown
-		distrosysconf="$sysconfdir/default"
 		;;
 esac
 AC_MSG_RESULT([$with_distro])
@@ -129,20 +84,17 @@ AC_ARG_WITH([init-script],
 case "$with_init_script" in
 	distro)
 		case $with_distro in
-			fedora|altlinux|opensuse*)
+			fedora)
 				init_script=systemd
 				;;
-			redhat|redhatenterpriseserver|oracle|oracleserver|sparclinux|plamo)
+			redhat|centos|oracle|oracleserver)
 				init_script=sysvinit
 				;;
-			centos)
-				init_script=sysvinit,systemd
-				;;
-			debian|raspbian|ubuntu)
+			debian|raspbian)
 				init_script=upstart,systemd
 				;;
-			pld)
-				init_script=sysvinit,upstart,systemd
+			ubuntu)
+				init_script=upstart
 				;;
 			*)
 				echo -n "Linux distribution init system unknown."
@@ -172,23 +124,6 @@ AM_CONDITIONAL([INIT_SCRIPT_SYSTEMD], [echo "$init_script" |grep -q "systemd"])
 AM_CONDITIONAL([INIT_SCRIPT_UPSTART], [echo "$init_script" |grep -q "upstart"])
 AC_MSG_RESULT($init_script)
 
-# systemd unit dir
-AC_ARG_WITH([systemdsystemunitdir],
-            AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files]),
-            [],
-            [with_systemdsystemunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)])
-if test -z "$with_systemdsystemunitdir"; then
-  with_systemdsystemunitdir=/lib/systemd/system
-fi
-if test "x$with_systemdsystemunitdir" != "xno"; then
-  AC_SUBST([SYSTEMD_UNIT_DIR], [$with_systemdsystemunitdir])
-fi
-
-AC_ARG_ENABLE([werror],
-	[AC_HELP_STRING([--disable-werror],
-	[do not treat warnings as errors])],
-	[], [enable_werror=yes])
-
 # Allow disabling rpath
 AC_ARG_ENABLE([rpath],
 	[AC_HELP_STRING([--enable-rpath], [set rpath in executables [default=no]])],
@@ -202,7 +137,7 @@ AC_ARG_ENABLE([doc],
 
 if test "x$enable_doc" = "xyes" -o "x$enable_doc" = "xauto"; then
 	db2xman=""
-	dbparsers="docbook2X2man docbook2x-man db2x_docbook2man docbook2man docbook-to-man"
+	dbparsers="docbook2x-man db2x_docbook2man docbook2man docbook-to-man"
 
 	AC_MSG_CHECKING(for docbook2x-man)
 	for name in ${dbparsers}; do
@@ -267,6 +202,11 @@ if test "$enable_apparmor" = "auto" ; then
 fi
 AM_CONDITIONAL([ENABLE_APPARMOR], [test "x$enable_apparmor" = "xyes"])
 
+AM_COND_IF([ENABLE_APPARMOR],
+	[AC_CHECK_HEADER([sys/apparmor.h],[],[AC_MSG_ERROR([You must install the AppArmor development package in order to compile lxc])])
+	AC_CHECK_LIB([apparmor], [aa_change_profile],[],[AC_MSG_ERROR([You must install the AppArmor development package in order to compile lxc])])
+	AC_SUBST([APPARMOR_LIBS], [-lapparmor])])
+
 # GnuTLS
 AC_ARG_ENABLE([gnutls],
 	[AC_HELP_STRING([--enable-gnutls], [enable GnuTLS support [default=auto]])],
@@ -279,7 +219,7 @@ AM_CONDITIONAL([ENABLE_GNUTLS], [test "x$enable_gnutls" = "xyes"])
 
 AM_COND_IF([ENABLE_GNUTLS],
 	[AC_CHECK_HEADER([gnutls/gnutls.h],[],[AC_MSG_ERROR([You must install the GnuTLS development package in order to compile lxc])])
-	AC_CHECK_LIB([gnutls], [gnutls_hash_fast],[true],[AC_MSG_ERROR([You must install the GnuTLS development package in order to compile lxc])])
+	AC_CHECK_LIB([gnutls], [gnutls_hash_fast],[],[AC_MSG_ERROR([You must install the GnuTLS development package in order to compile lxc])])
 	AC_SUBST([GNUTLS_LIBS], [-lgnutls])])
 
 # SELinux
@@ -314,33 +254,44 @@ AM_COND_IF([ENABLE_SECCOMP],
 		])
 	])
 
-AC_MSG_CHECKING(for static libcap)
-# Check for static libcap, make sure the function checked for differs from the
-# the one checked below so the cache doesn't give a wrong answer
-OLD_CFLAGS="$CFLAGS"
-OLD_CPPFLAGS="$CPPFLAGS"
-OLD_LDFLAGS="$LDFLAGS"
-OLD_LIBS="$LIBS"
-CFLAGS=""
-CPPFLAGS=""
-LDFLAGS="-static"
-LIBS="-lcap"
-AC_LINK_IFELSE([
-  AC_LANG_SOURCE(
-    [[int main() { return 0; }]]
-  )],[have_static_libcap=yes],[have_static_libcap=no])
-AM_CONDITIONAL([HAVE_STATIC_LIBCAP], [test "x$have_static_libcap" = "xyes"])
-if test "x$have_static_libcap" = "xyes"; then
-	AC_DEFINE([HAVE_STATIC_LIBCAP], 1, [Have static libcap])
+# cgmanager
+AC_ARG_ENABLE([cgmanager],
+	[AC_HELP_STRING([--enable-cgmanager], [enable cgmanager support [default=auto]])],
+	[], [enable_cgmanager=auto])
+
+if test "x$enable_cgmanager" = "xauto" ; then
+	AC_CHECK_LIB([cgmanager],[cgmanager_create],[enable_cgmanager=yes],[enable_cgmanager=no],[-lnih -lnih-dbus -ldbus-1])
+fi
+AM_CONDITIONAL([ENABLE_CGMANAGER], [test "x$enable_cgmanager" = "xyes"])
+
+AM_COND_IF([ENABLE_CGMANAGER],
+	[PKG_CHECK_MODULES([CGMANAGER], [libcgmanager])
+	PKG_CHECK_MODULES([NIH], [libnih >= 1.0.2])
+	PKG_CHECK_MODULES([NIH_DBUS], [libnih-dbus >= 1.0.0])
+	PKG_CHECK_MODULES([DBUS], [dbus-1 >= 1.2.16])
+	])
+
+AC_MSG_CHECKING(for get_pid_cgroup_abs_sync)
+save_LIBS=$LIBS
+AC_SEARCH_LIBS([cgmanager_get_pid_cgroup_abs_sync], [cgmanager], [have_abs_cgroups=yes], [have_abs_cgroups=no], [-lnih -lnih-dbus -ldbus-1])
+LIBS=$save_LIBS
+if test "x$have_abs_cgroups" = "xyes"; then
+	AC_DEFINE([HAVE_CGMANAGER_GET_PID_CGROUP_ABS_SYNC], 1, [Have cgmanager_get_pid_cgroup_abs_sync])
 	AC_MSG_RESULT([yes])
 else
 	AC_MSG_RESULT([no])
 fi
-CPPFLAGS="$OLD_CPPFLAGS"
-CFLAGS="$OLD_CFLAGS"
-LDFLAGS="$OLD_LDFLAGS"
-LIBS="$OLD_LIBS"
 
+AC_MSG_CHECKING(for cgmanager_list_controllers)
+save_LIBS=$LIBS
+AC_SEARCH_LIBS([cgmanager_list_controllers_sync], [cgmanager], [have_list_controllers=yes], [have_list_controllers=no], [-lnih -lnih-dbus -ldbus-1])
+LIBS=$save_LIBS
+if test "x$have_list_controllers" = "xyes"; then
+	AC_DEFINE([HAVE_CGMANAGER_LIST_CONTROLLERS], 1, [Have cgmanager_list_controllers])
+	AC_MSG_RESULT([yes])
+else
+	AC_MSG_RESULT([no])
+fi
 
 # Linux capabilities
 AC_ARG_ENABLE([capabilities],
@@ -353,11 +304,8 @@ fi
 AM_CONDITIONAL([ENABLE_CAP], [test "x$enable_capabilities" = "xyes"])
 
 AM_COND_IF([ENABLE_CAP],
-	[AC_CHECK_HEADER([sys/capability.h],[],[AC_MSG_ERROR([You must install the libcap development package in order to compile lxc])])
-	AC_CHECK_LIB(cap,cap_set_proc,[],[AC_MSG_ERROR([You must install the libcap development package in order to compile lxc])])
-        # Test whether we support getting file capabilities via cap_get_file().
-        AC_CHECK_LIB(cap,cap_get_file, AC_DEFINE(LIBCAP_SUPPORTS_FILE_CAPABILITIES,1,[Have cap_get_file]),[],[])
-        AC_SUBST([CAP_LIBS], [-lcap])])
+	[AC_CHECK_LIB(cap,cap_set_proc,[true],[AC_MSG_ERROR([You are missing libcap support.])])
+	AC_SUBST([CAP_LIBS], [-lcap])])
 
 # HAVE_SCMP_FILTER_CTX=1 will tell us we have libseccomp api >= 1.0.0
 OLD_CFLAGS="$CFLAGS"
@@ -371,6 +319,29 @@ AC_ARG_ENABLE([examples],
 	[AC_HELP_STRING([--enable-examples], [install examples [default=yes]])],
 	[], [enable_examples=yes])
 AM_CONDITIONAL([ENABLE_EXAMPLES], [test "x$enable_examples" = "xyes"])
+
+# Python3 module and scripts
+AC_ARG_ENABLE([python],
+	[AC_HELP_STRING([--enable-python], [enable python binding [default=auto]])],
+	[], [enable_python=auto])
+
+if test "x$enable_python" = "xauto"; then
+	PKG_CHECK_MODULES([PYTHONDEV], [python3 >= 3.2],[enable_python=yes],[enable_python=no])
+	if test "$CC" = "clang"; then
+		enable_python=no
+	fi
+fi
+
+if test "x$enable_python" = "xyes" && test "$CC" = "clang"; then
+	AC_MSG_ERROR([Python3 is incompatible with the clang compiler])
+fi
+
+AM_CONDITIONAL([ENABLE_PYTHON], [test "x$enable_python" = "xyes"])
+
+AM_COND_IF([ENABLE_PYTHON],
+	[AM_PATH_PYTHON([3.2], [], [AC_MSG_ERROR([You must install python3])])
+	PKG_CHECK_MODULES([PYTHONDEV], [python3 >= 3.2],[],[AC_MSG_ERROR([You must install python3-dev])])
+	AC_DEFINE_UNQUOTED([ENABLE_PYTHON], 1, [Python3 is available])])
 
 # Enable dumping stack traces
 AC_ARG_ENABLE([mutex-debugging],
@@ -402,6 +373,53 @@ m4_ifdef([PKG_CHECK_VAR], [],
     ])# PKG_CHECK_VAR
 ])
 
+# Lua module and scripts
+AC_ARG_ENABLE([lua],
+	[AC_HELP_STRING([--enable-lua], [enable lua binding [default=auto]])],
+	[], [enable_lua=auto])
+
+AC_ARG_WITH([lua-pc],
+	[AS_HELP_STRING(
+		[--with-lua-pc=PKG],
+		[Specify pkg-config package name for lua]
+	)], [], [with_lua_pc=no])
+
+if test "x$enable_lua" = "xyes" -a "x$with_lua_pc" != "xno"; then
+	# exit with error if not found
+	PKG_CHECK_MODULES([LUA], [$with_lua_pc], [LUAPKGCONFIG=$with_lua_pc])
+fi
+
+if test "x$enable_lua" = "xauto" -a "x$with_lua_pc" != "xno"; then
+	PKG_CHECK_MODULES([LUA], [$with_lua_pc],
+		[LUAPKGCONFIG=$with_lua_pc
+		enable_lua=yes],
+		[enable_lua=no])
+fi
+
+if test "x$enable_lua" != "xno"; then
+	PKG_CHECK_MODULES([LUA], [lua], [LUAPKGCONFIG=lua],
+		[PKG_CHECK_MODULES([LUA], [lua5.2], [LUAPKGCONFIG=lua5.2],
+			[PKG_CHECK_MODULES([LUA], [lua5.1], [LUAPKGCONFIG=lua5.1],
+				[AS_IF([test "x$enable_lua" = "xyes"],
+					[AC_MSG_ERROR([Lua not found. Please use --with-lua-pc=PKG])],
+					[enable_lua=no])]
+			)]
+		)])
+	AS_IF([test "x$LUAPKGCONFIG" != "x"], [enable_lua=yes])
+fi
+
+AM_CONDITIONAL([ENABLE_LUA],
+	[test "x$enable_lua" = "xyes"])
+
+AM_COND_IF([ENABLE_LUA],
+	[AC_MSG_CHECKING([Lua version])
+	PKG_CHECK_VAR([LUA_VERSION], [$LUAPKGCONFIG], [V],,
+		[PKG_CHECK_VAR([LUA_VERSION], [$LUAPKGCONFIG], [major_version])])
+	AC_MSG_RESULT([$LUA_VERSION])
+	AC_SUBST([LUA_LIBDIR], [$libdir/lua/$LUA_VERSION])
+	AC_SUBST([LUA_SHAREDIR], [$datadir/lua/$LUA_VERSION])
+	])
+
 # Optional bash integration
 AC_ARG_ENABLE([bash],
 	[AC_HELP_STRING([--enable-bash], [build bash integration [default=yes]])],
@@ -415,18 +433,6 @@ AM_COND_IF([ENABLE_BASH],
 	AC_MSG_RESULT([$bashcompdir])
 	AC_SUBST(bashcompdir)
 	])
-
-# Build the command line tools
-AC_ARG_ENABLE([tools],
-	[AC_HELP_STRING([--enable-tools], [build the command line tools [default=yes]])],
-	[], [enable_tools=yes])
-AM_CONDITIONAL([ENABLE_TOOLS], [test "x$enable_tools" = "xyes"])
-
-# Build the liblxc commands
-AC_ARG_ENABLE([commands],
-	[AC_HELP_STRING([--enable-commands], [build the liblxc commands [default=yes]])],
-	[], [enable_commands=yes])
-AM_CONDITIONAL([ENABLE_COMMANDS], [test "x$enable_commands" = "xyes"])
 
 # Optional test binaries
 AC_ARG_ENABLE([tests],
@@ -483,7 +489,7 @@ AC_ARG_WITH([cgroup-pattern],
 	[AC_HELP_STRING(
 		[--with-cgroup-pattern=pattern],
 		[pattern for container cgroups]
-	)], [], [with_cgroup_pattern=['lxc/%n']])
+	)], [], [with_cgroup_pattern=['/lxc/%n']])
 
 # Container log path.  By default, use $lxcpath.
 AC_MSG_CHECKING([Whether to place logfiles in container config path])
@@ -522,19 +528,14 @@ AS_AC_EXPAND(LXCPATH, "$with_config_path")
 AS_AC_EXPAND(LXC_GLOBAL_CONF, "$with_global_conf")
 AS_AC_EXPAND(LXC_USERNIC_CONF, "$with_usernic_conf")
 AS_AC_EXPAND(LXC_USERNIC_DB, "$with_usernic_db")
-AS_AC_EXPAND(LXC_DISTRO_SYSCONF, "$distrosysconf")
 AS_AC_EXPAND(LXCROOTFSMOUNT, "$with_rootfs_path")
 AS_AC_EXPAND(LXCTEMPLATEDIR, "$datadir/lxc/templates")
 AS_AC_EXPAND(LXCTEMPLATECONFIG, "$datadir/lxc/config")
 AS_AC_EXPAND(LXCHOOKDIR, "$datadir/lxc/hooks")
-AS_AC_EXPAND(LXCBINHOOKDIR, "$libexecdir/lxc/hooks")
 AS_AC_EXPAND(LXCINITDIR, "$libexecdir")
 AS_AC_EXPAND(LOGPATH, "$with_log_path")
 AS_AC_EXPAND(RUNTIME_PATH, "$with_runtime_path")
 AC_SUBST(DEFAULT_CGROUP_PATTERN, ["$with_cgroup_pattern"])
-
-# We need the install path so criu knows where to reference the hook scripts.
-AC_DEFINE_UNQUOTED([DATADIR], "$DATADIR", ["Prefix for shared files."])
 
 # Check for some standard kernel headers
 AC_CHECK_HEADERS([linux/unistd.h linux/netlink.h linux/genetlink.h],
@@ -558,121 +559,35 @@ else
 fi
 AM_CONDITIONAL([IS_BIONIC], [test "x$is_bionic" = "xyes"])
 
-# Configuration examples
-AC_ARG_ENABLE([pam],
-	[AC_HELP_STRING([--enable-pam], [enable pam module [default=no]])],
-	[], [enable_pam=no])
-AM_CONDITIONAL([ENABLE_PAM], [test "x$enable_pam" = "xyes"])
-
-AM_COND_IF([ENABLE_PAM],
-	[AC_ARG_WITH(
-		[pamdir],
-		[AS_HELP_STRING([--with-pamdir=PATH],[Specify the directory where PAM modules are stored,
-							or "none" if PAM modules are not to be built])],
-		[pamdir="${withval}"],
-		[
-			if test "${prefix}" = "/usr"; then
-				pamdir="/lib${libdir##*/lib}/security"
-			else
-				pamdir="\$(libdir)/security"
-			fi
-		]
-	)])
-
-AM_CONDITIONAL([HAVE_PAM], [test x"$pamdir" != "xnone"])
-AM_COND_IF([ENABLE_PAM],
-	[if test "z$pamdir" != "znone"; then
-		AC_ARG_VAR([PAM_CFLAGS], [C compiler flags for pam])
-		AC_ARG_VAR([PAM_LIBS], [linker flags for pam])
-		AC_CHECK_LIB(
-			[pam],
-			[pam_authenticate],
-			[PAM_LIBS="-lpam"],
-			[AC_MSG_ERROR([*** libpam not found.])
-			])
-
-		AC_SUBST(PAM_LIBS)
-		AC_SUBST([pamdir])
-	fi])
-
 # Some systems lack PR_CAPBSET_DROP definition => HAVE_DECL_PR_CAPBSET_DROP
 AC_CHECK_DECLS([PR_CAPBSET_DROP], [], [], [#include <sys/prctl.h>])
 
-# Some systems lack PR_{G,S}ET_NO_NEW_PRIVS definition => HAVE_DECL_PR_{G,S}ET_NO_NEW_PRIVS
-AC_CHECK_DECLS([PR_SET_NO_NEW_PRIVS], [], [], [#include <sys/prctl.h>])
-AC_CHECK_DECLS([PR_GET_NO_NEW_PRIVS], [], [], [#include <sys/prctl.h>])
-
 # Check for some headers
-AC_CHECK_HEADERS([pty.h sys/memfd.h sys/personality.h sys/resource.h sys/signalfd.h sys/timerfd.h utmpx.h])
-
-AC_CHECK_HEADER([ifaddrs.h],
-	AM_CONDITIONAL(HAVE_IFADDRS_H, true)
-	AC_DEFINE(HAVE_IFADDRS_H, 1, [Have ifaddrs.h]),
-	AM_CONDITIONAL(HAVE_IFADDRS_H, false))
+AC_CHECK_HEADERS([sys/signalfd.h pty.h ifaddrs.h sys/personality.h utmpx.h sys/timerfd.h])
 
 # lookup major()/minor()/makedev()
 AC_HEADER_MAJOR
 
 # Check for some syscalls functions
-AC_CHECK_FUNCS([setns pivot_root sethostname unshare rand_r confstr faccessat gettid memfd_create])
-
-# Check for strerror_r() support. Defines:
-# - HAVE_STRERROR_R if available
-# - HAVE_DECL_STRERROR_R if defined
-# - STRERROR_R_CHAR_P if it returns char *
-AC_FUNC_STRERROR_R
+AC_CHECK_FUNCS([setns pivot_root sethostname unshare rand_r confstr faccessat])
 
 # Check for some functions
 AC_CHECK_LIB(pthread, main)
+AC_CHECK_FUNCS(pthread_atfork)
 AC_CHECK_FUNCS(statvfs)
 AC_CHECK_LIB(util, openpty)
 AC_CHECK_FUNCS([openpty hasmntopt setmntent endmntent utmpxname])
-AC_CHECK_FUNCS([getgrgid_r],
-	AM_CONDITIONAL(HAVE_GETGRGID_R, true)
-	AC_DEFINE(HAVE_GETGRGID_R,1,[Have getgrgid_r]),
-	AM_CONDITIONAL(HAVE_GETGRGID_R, false))
 AC_CHECK_FUNCS([getline],
 	AM_CONDITIONAL(HAVE_GETLINE, true)
 	AC_DEFINE(HAVE_GETLINE,1,[Have getline]),
 	AM_CONDITIONAL(HAVE_GETLINE, false))
-AC_CHECK_FUNCS([getsubopt],
-	AM_CONDITIONAL(HAVE_GETSUBOPT, true)
-	AC_DEFINE(HAVE_GETSUBOPT,1,[Have getsubopt]),
-	AM_CONDITIONAL(HAVE_GETSUBOPT, false))
 AC_CHECK_FUNCS([fgetln],
 	AM_CONDITIONAL(HAVE_FGETLN, true)
 	AC_DEFINE(HAVE_FGETLN,1,[Have fgetln]),
 	AM_CONDITIONAL(HAVE_FGETLN, false))
-AC_CHECK_FUNCS([keyctl],
-	AM_CONDITIONAL(HAVE_KEYCTL, true)
-	AC_DEFINE(HAVE_KEYCTL,1,[Have keyctl]),
-	AM_CONDITIONAL(HAVE_KEYCTL, false))
-AC_CHECK_FUNCS([prlimit],
-	AM_CONDITIONAL(HAVE_PRLIMIT, true)
-	AC_DEFINE(HAVE_PRLIMIT,1,[Have prlimit]),
-	AM_CONDITIONAL(HAVE_PRLIMIT, false))
-AC_CHECK_FUNCS([prlimit64],
-	AM_CONDITIONAL(HAVE_PRLIMIT64, true)
-	AC_DEFINE(HAVE_PRLIMIT64,1,[Have prlimit64]),
-	AM_CONDITIONAL(HAVE_PRLIMIT64, false))
-AC_CHECK_FUNCS([pthread_setcancelstate],
-	AM_CONDITIONAL(HAVE_PTHREAD_SETCANCELSTATE, true)
-	AC_DEFINE(HAVE_PTHREAD_SETCANCELSTATE,1,[Have pthread_setcancelstate]),
-	AM_CONDITIONAL(HAVE_PTHREAD_SETCANCELSTATE, false))
-AC_CHECK_FUNCS([strlcpy],
-	AM_CONDITIONAL(HAVE_STRLCPY, true)
-	AC_DEFINE(HAVE_STRLCPY,1,[Have strlcpy]),
-	AM_CONDITIONAL(HAVE_STRLCPY, false))
-AC_CHECK_FUNCS([strlcat],
-	AM_CONDITIONAL(HAVE_STRLCAT, true)
-	AC_DEFINE(HAVE_STRLCAT,1,[Have strlcat]),
-	AM_CONDITIONAL(HAVE_STRLCAT, false))
-
-# HAVE_STRUCT_RTNL_LINK_STATS64={0,1}
-AC_CHECK_TYPES([struct rtnl_link_stats64], [], [], [[#include <linux/if_link.h>]])
 
 # Check for some libraries
-AX_PTHREAD
+AC_SEARCH_LIBS(sem_open, [rt pthread])
 AC_SEARCH_LIBS(clock_gettime, [rt])
 
 # Check for some standard binaries
@@ -682,29 +597,9 @@ AC_PROG_SED
 # See if we support thread-local storage.
 LXC_CHECK_TLS
 
-AX_CHECK_COMPILE_FLAG([-fdiagnostics-color], [CFLAGS="$CFLAGS -fdiagnostics-color"],,[-Werror])
-AX_CHECK_COMPILE_FLAG([-Wimplicit-fallthrough], [CFLAGS="$CFLAGS -Wimplicit-fallthrough"],,[-Werror])
-AX_CHECK_COMPILE_FLAG([-Wcast-align], [CFLAGS="$CFLAGS -Wcast-align"],,[-Werror])
-AX_CHECK_COMPILE_FLAG([-Wstrict-prototypes], [CFLAGS="$CFLAGS -Wstrict-prototypes"],,[-Werror])
-AX_CHECK_COMPILE_FLAG([-fno-strict-aliasing], [CFLAGS="$CFLAGS -fno-strict-aliasing"],,[-Werror])
-AX_CHECK_COMPILE_FLAG([-fstack-clash-protection], [CFLAGS="$CFLAGS -fstack-clash-protection"],,[-Werror])
-AX_CHECK_COMPILE_FLAG([-fstack-protector-strong], [CFLAGS="$CFLAGS -fstack-protector-strong"],,[-Werror])
-AX_CHECK_COMPILE_FLAG([-g], [CFLAGS="$CFLAGS -g"],,[-Werror])
-AX_CHECK_COMPILE_FLAG([--mcet -fcf-protection], [CFLAGS="$CFLAGS --mcet -fcf-protection"],,[-Werror])
-AX_CHECK_COMPILE_FLAG([-Werror=implicit-function-declaration], [CFLAGS="$CFLAGS -Werror=implicit-function-declaration"],,[-Werror])
-
-AX_CHECK_LINK_FLAG([-z relro], [LDLAGS="$LDLAGS -z relro"],,[])
-AX_CHECK_LINK_FLAG([-z now], [LDLAGS="$LDLAGS -z now"],,[])
-
-CFLAGS="$CFLAGS -Wvla -std=gnu11"
-if test "x$enable_werror" = "xyes"; then
-	CFLAGS="$CFLAGS -Werror"
+if test "x$GCC" = "xyes"; then
+	CFLAGS="$CFLAGS -Wall"
 fi
-
-AC_ARG_ENABLE([thread-safety],
-	[AC_HELP_STRING([--enable-thread-safety], [enforce thread-safety otherwise fail the build [default=yes]])],
-	[], [enable_thread_safety=yes])
-AM_CONDITIONAL([ENFORCE_THREAD_SAFETY], [test "x$enable_thread_safety" = "xyes"])
 
 # Files requiring some variable expansion
 AC_CONFIG_FILES([
@@ -714,45 +609,49 @@ AC_CONFIG_FILES([
 
 	config/Makefile
 	config/apparmor/Makefile
-	config/apparmor/abstractions/start-container
 	config/selinux/Makefile
 	config/bash/Makefile
 	config/bash/lxc
 	config/init/Makefile
-	config/init/common/Makefile
-	config/init/common/lxc-containers
-	config/init/common/lxc-net
+	config/init/sysvinit/Makefile
+	config/init/sysvinit/lxc
 	config/init/systemd/Makefile
 	config/init/systemd/lxc.service
-	config/init/systemd/lxc@.service
-	config/init/systemd/lxc-net.service
-	config/init/sysvinit/Makefile
-	config/init/sysvinit/lxc-containers
-	config/init/sysvinit/lxc-net
-	config/init/upstart/lxc.conf
-	config/init/upstart/lxc-net.conf
 	config/init/upstart/Makefile
 	config/etc/Makefile
 	config/templates/Makefile
-	config/templates/common.conf
-	config/templates/common.conf.d/Makefile
+	config/templates/centos.common.conf
+	config/templates/centos.userns.conf
+	config/templates/debian.common.conf
+	config/templates/debian.userns.conf
+	config/templates/fedora.common.conf
+	config/templates/fedora.userns.conf
+	config/templates/gentoo.common.conf
+	config/templates/gentoo.moresecure.conf
+	config/templates/gentoo.userns.conf
 	config/templates/nesting.conf
-	config/templates/oci.common.conf
-	config/templates/userns.conf
+	config/templates/oracle.common.conf
+	config/templates/oracle.userns.conf
+	config/templates/plamo.common.conf
+	config/templates/plamo.userns.conf
+	config/templates/ubuntu-cloud.common.conf
+	config/templates/ubuntu-cloud.lucid.conf
+	config/templates/ubuntu-cloud.userns.conf
+	config/templates/ubuntu.common.conf
+	config/templates/ubuntu.lucid.conf
+	config/templates/ubuntu.userns.conf
 	config/yum/Makefile
-	config/sysconfig/Makefile
-	config/sysconfig/lxc
 
 	doc/Makefile
 	doc/api/Makefile
+	doc/legacy/lxc-ls.sgml
 	doc/lxc-attach.sgml
 	doc/lxc-autostart.sgml
 	doc/lxc-cgroup.sgml
 	doc/lxc-checkconfig.sgml
-	doc/lxc-checkpoint.sgml
+	doc/lxc-clone.sgml
 	doc/lxc-config.sgml
 	doc/lxc-console.sgml
-	doc/lxc-copy.sgml
 	doc/lxc-create.sgml
 	doc/lxc-destroy.sgml
 	doc/lxc-device.sgml
@@ -762,12 +661,12 @@ AC_CONFIG_FILES([
 	doc/lxc-ls.sgml
 	doc/lxc-monitor.sgml
 	doc/lxc-snapshot.sgml
+	doc/lxc-start-ephemeral.sgml
 	doc/lxc-start.sgml
 	doc/lxc-stop.sgml
 	doc/lxc-top.sgml
 	doc/lxc-unfreeze.sgml
 	doc/lxc-unshare.sgml
-	doc/lxc-update-config.sgml
 	doc/lxc-user-nic.sgml
 	doc/lxc-usernsexec.sgml
 	doc/lxc-wait.sgml
@@ -792,14 +691,14 @@ AC_CONFIG_FILES([
 	doc/examples/lxc-complex.conf
 
 	doc/ja/Makefile
+	doc/ja/legacy/lxc-ls.sgml
 	doc/ja/lxc-attach.sgml
 	doc/ja/lxc-autostart.sgml
 	doc/ja/lxc-cgroup.sgml
 	doc/ja/lxc-checkconfig.sgml
-	doc/ja/lxc-checkpoint.sgml
+	doc/ja/lxc-clone.sgml
 	doc/ja/lxc-config.sgml
 	doc/ja/lxc-console.sgml
-	doc/ja/lxc-copy.sgml
 	doc/ja/lxc-create.sgml
 	doc/ja/lxc-destroy.sgml
 	doc/ja/lxc-device.sgml
@@ -809,12 +708,12 @@ AC_CONFIG_FILES([
 	doc/ja/lxc-ls.sgml
 	doc/ja/lxc-monitor.sgml
 	doc/ja/lxc-snapshot.sgml
+	doc/ja/lxc-start-ephemeral.sgml
 	doc/ja/lxc-start.sgml
 	doc/ja/lxc-stop.sgml
 	doc/ja/lxc-top.sgml
 	doc/ja/lxc-unfreeze.sgml
 	doc/ja/lxc-unshare.sgml
-	doc/ja/lxc-update-config.sgml
 	doc/ja/lxc-user-nic.sgml
 	doc/ja/lxc-usernsexec.sgml
 	doc/ja/lxc-wait.sgml
@@ -827,56 +726,39 @@ AC_CONFIG_FILES([
 	doc/ja/common_options.sgml
 	doc/ja/see_also.sgml
 
-	doc/ko/Makefile
-	doc/ko/lxc-attach.sgml
-	doc/ko/lxc-autostart.sgml
-	doc/ko/lxc-cgroup.sgml
-	doc/ko/lxc-checkconfig.sgml
-	doc/ko/lxc-checkpoint.sgml
-	doc/ko/lxc-config.sgml
-	doc/ko/lxc-console.sgml
-	doc/ko/lxc-copy.sgml
-	doc/ko/lxc-create.sgml
-	doc/ko/lxc-destroy.sgml
-	doc/ko/lxc-device.sgml
-	doc/ko/lxc-execute.sgml
-	doc/ko/lxc-freeze.sgml
-	doc/ko/lxc-info.sgml
-	doc/ko/lxc-ls.sgml
-	doc/ko/lxc-monitor.sgml
-	doc/ko/lxc-snapshot.sgml
-	doc/ko/lxc-start.sgml
-	doc/ko/lxc-stop.sgml
-	doc/ko/lxc-top.sgml
-	doc/ko/lxc-unfreeze.sgml
-	doc/ko/lxc-unshare.sgml
-	doc/ko/lxc-user-nic.sgml
-	doc/ko/lxc-usernsexec.sgml
-	doc/ko/lxc-wait.sgml
-
-	doc/ko/lxc.conf.sgml
-	doc/ko/lxc.container.conf.sgml
-	doc/ko/lxc.system.conf.sgml
-	doc/ko/lxc-usernet.sgml
-	doc/ko/lxc.sgml
-	doc/ko/common_options.sgml
-	doc/ko/see_also.sgml
-
 	hooks/Makefile
-	hooks/dhclient
 
 	templates/Makefile
+	templates/lxc-alpine
+	templates/lxc-altlinux
+	templates/lxc-archlinux
 	templates/lxc-busybox
+	templates/lxc-centos
+	templates/lxc-cirros
+	templates/lxc-debian
 	templates/lxc-download
-	templates/lxc-local
-	templates/lxc-oci
+	templates/lxc-fedora
+	templates/lxc-gentoo
+	templates/lxc-openmandriva
+	templates/lxc-opensuse
+	templates/lxc-oracle
+	templates/lxc-plamo
+	templates/lxc-sshd
+	templates/lxc-ubuntu
+	templates/lxc-ubuntu-cloud
 
 	src/Makefile
 	src/lxc/Makefile
+	src/lxc/lxc-checkconfig
+	src/lxc/lxc-ls
+	src/lxc/lxc-start-ephemeral
+	src/lxc/legacy/lxc-ls
 	src/lxc/lxc.functions
-	src/lxc/cmd/lxc-checkconfig
-	src/lxc/cmd/lxc-update-config
 	src/lxc/version.h
+	src/python-lxc/Makefile
+	src/python-lxc/setup.py
+
+	src/lua-lxc/Makefile
 
 	src/tests/Makefile
 	src/tests/lxc-test-usernic
@@ -888,39 +770,6 @@ AC_OUTPUT
 cat << EOF
 
 ----------------------------
-Binaries
- - Command Line Tools:
-   - lxc-attach:     $enable_tools
-   - lxc-autostart:  $enable_tools
-   - lxc-cgroup:     $enable_tools
-   - lxc-checkpoint: $enable_tools
-   - lxc-config:     $enable_tools
-   - lxc-console:    $enable_tools
-   - lxc-copy:       $enable_tools
-   - lxc-create:     $enable_tools
-   - lxc-destroy:    $enable_tools
-   - lxc-device:     $enable_tools
-   - lxc-execute:    $enable_tools
-   - lxc-freeze:     $enable_tools
-   - lxc-info:       $enable_tools
-   - lxc-ls:         $enable_tools
-   - lxc-monitor:    $enable_tools
-   - lxc-snapshot:   $enable_tools
-   - lxc-start:      $enable_tools
-   - lxc-stop:       $enable_tools
-   - lxc-top:        $enable_tools
-   - lxc-unfreeze:   $enable_tools
-   - lxc-unshare:    $enable_tools
-   - lxc-wait:       $enable_tools
-
- - liblxc Commands:
-   - lxc-checkconfig:   $enable_commands
-   - lxc-update-config: $enable_commands
-   - lxc-init:          $enable_commands
-   - lxc-monitord:      $enable_commands
-   - lxc-user-nic:      $enable_commands
-   - lxc-usernsexec:    $enable_commands
-
 Environment:
  - compiler: $CC
  - distribution: $with_distro
@@ -934,10 +783,11 @@ Security features:
  - Linux capabilities: $enable_capabilities
  - seccomp: $enable_seccomp
  - SELinux: $enable_selinux
+ - cgmanager: $enable_cgmanager
 
-PAM:
- - PAM module: $enable_pam
- - cgroup PAM module: $pamdir
+Bindings:
+ - lua: $enable_lua
+ - python3: $enable_python
 
 Documentation:
  - examples: $enable_examples
@@ -950,8 +800,14 @@ Debugging:
 
 Paths:
  - Logs in configpath: $enable_configpath_log
-
-Thread-safety:
- - enforce: $enable_thread_safety
-
 EOF
+
+if test "x$ac_cv_func_pthread_atfork" = "xno" ; then
+cat << EOF
+
+WARNING: Threading not supported on your platform
+
+	You are compiling LXC for bionic target which lacks certain threading related functionality used by LXC API (like pthread_atfork).
+	Please note that, because of the missing functionality, multithreaded usage of LXC API cause some problems.
+EOF
+fi

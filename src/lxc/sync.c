@@ -21,31 +21,26 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
 
-#include "config.h"
+#include "sync.h"
 #include "log.h"
 #include "start.h"
-#include "sync.h"
-#include "utils.h"
 
-lxc_log_define(sync, lxc);
+lxc_log_define(lxc_sync, lxc);
 
 static int __sync_wait(int fd, int sequence)
 {
 	int sync = -1;
 	ssize_t ret;
 
-	ret = lxc_read_nointr(fd, &sync, sizeof(sync));
+	ret = read(fd, &sync, sizeof(sync));
 	if (ret < 0) {
-		SYSERROR("Sync wait failure");
+		ERROR("sync wait failure : %s", strerror(errno));
 		return -1;
 	}
 
@@ -53,7 +48,7 @@ static int __sync_wait(int fd, int sequence)
 		return 0;
 
 	if ((size_t)ret != sizeof(sync)) {
-		ERROR("Unexpected sync size: %zu expected %zu", (size_t)ret, sizeof(sync));
+		ERROR("unexpected sync size: %zu expected %zu", (size_t)ret, sizeof(sync));
 		return -1;
 	}
 
@@ -64,7 +59,7 @@ static int __sync_wait(int fd, int sequence)
 	}
 
 	if (sync != sequence) {
-		ERROR("Invalid sequence number %d. Expected sequence number %d",
+		ERROR("invalid sequence number %d. expected %d",
 		      sync, sequence);
 		return -1;
 	}
@@ -75,8 +70,8 @@ static int __sync_wake(int fd, int sequence)
 {
 	int sync = sequence;
 
-	if (lxc_write_nointr(fd, &sync, sizeof(sync)) < 0) {
-		SYSERROR("Sync wake failure");
+	if (write(fd, &sync, sizeof(sync)) < 0) {
+		ERROR("sync wake failure : %s", strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -91,63 +86,63 @@ static int __sync_barrier(int fd, int sequence)
 
 int lxc_sync_barrier_parent(struct lxc_handler *handler, int sequence)
 {
-	return __sync_barrier(handler->sync_sock[0], sequence);
+	return __sync_barrier(handler->sv[0], sequence);
 }
 
 int lxc_sync_barrier_child(struct lxc_handler *handler, int sequence)
 {
-	return __sync_barrier(handler->sync_sock[1], sequence);
+	return __sync_barrier(handler->sv[1], sequence);
 }
 
 int lxc_sync_wake_parent(struct lxc_handler *handler, int sequence)
 {
-	return __sync_wake(handler->sync_sock[0], sequence);
+	return __sync_wake(handler->sv[0], sequence);
 }
 
 int lxc_sync_wait_parent(struct lxc_handler *handler, int sequence)
 {
-	return __sync_wait(handler->sync_sock[0], sequence);
+	return __sync_wait(handler->sv[0], sequence);
 }
 
 int lxc_sync_wait_child(struct lxc_handler *handler, int sequence)
 {
-	return __sync_wait(handler->sync_sock[1], sequence);
+	return __sync_wait(handler->sv[1], sequence);
 }
 
 int lxc_sync_wake_child(struct lxc_handler *handler, int sequence)
 {
-	return __sync_wake(handler->sync_sock[1], sequence);
+	return __sync_wake(handler->sv[1], sequence);
 }
 
 int lxc_sync_init(struct lxc_handler *handler)
 {
 	int ret;
 
-	ret = socketpair(AF_LOCAL, SOCK_STREAM, 0, handler->sync_sock);
+	ret = socketpair(AF_LOCAL, SOCK_STREAM, 0, handler->sv);
 	if (ret) {
 		SYSERROR("failed to create synchronization socketpair");
 		return -1;
 	}
 
 	/* Be sure we don't inherit this after the exec */
-	fcntl(handler->sync_sock[0], F_SETFD, FD_CLOEXEC);
+	fcntl(handler->sv[0], F_SETFD, FD_CLOEXEC);
 
 	return 0;
 }
 
 void lxc_sync_fini_child(struct lxc_handler *handler)
 {
-	if (handler->sync_sock[0] != -1) {
-		close(handler->sync_sock[0]);
-		handler->sync_sock[0] = -1;
+	if (handler->sv[0] != -1) {
+		close(handler->sv[0]);
+		handler->sv[0] = -1;
 	}
 }
 
 void lxc_sync_fini_parent(struct lxc_handler *handler)
 {
-	if (handler->sync_sock[1] != -1) {
-		close(handler->sync_sock[1]);
-		handler->sync_sock[1] = -1;
+	if (handler->sv[1] != -1) {
+		close(handler->sv[1]);
+		handler->sv[1] = -1;
 	}
 }
 

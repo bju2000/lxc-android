@@ -20,202 +20,150 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
+#include "config.h"
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
-#include <errno.h>
-#include <fcntl.h>
 #include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <sys/socket.h>
-#include <sys/syscall.h>
 #include <sys/un.h>
 
-#include "config.h"
 #include "log.h"
-#include "raw_syscalls.h"
-#include "utils.h"
 
-#ifndef HAVE_STRLCPY
-#include "include/strlcpy.h"
-#endif
-
-lxc_log_define(af_unix, lxc);
-
-static ssize_t lxc_abstract_unix_set_sockaddr(struct sockaddr_un *addr,
-				const char *path)
-{
-	size_t len;
-
-	if (!addr || !path) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	/* Clear address structure */
-	memset(addr, 0, sizeof(*addr));
-
-	addr->sun_family = AF_UNIX;
-
-	len = strlen(&path[1]);
-
-	/* do not enforce \0-termination */
-	if (len >= INT_MAX || len >= sizeof(addr->sun_path)) {
-		errno = ENAMETOOLONG;
-		return -1;
-	}
-
-	/* do not enforce \0-termination */
-	memcpy(&addr->sun_path[1], &path[1], len);
-	return len;
-}
+lxc_log_define(lxc_af_unix, lxc);
 
 int lxc_abstract_unix_open(const char *path, int type, int flags)
 {
-	int fd, ret;
-	ssize_t len;
+	int fd;
+	size_t len;
 	struct sockaddr_un addr;
 
 	fd = socket(PF_UNIX, type, 0);
 	if (fd < 0)
 		return -1;
 
+	/* Clear address structure */
+	memset(&addr, 0, sizeof(addr));
+
 	if (!path)
 		return fd;
 
-	len = lxc_abstract_unix_set_sockaddr(&addr, path);
-	if (len < 0) {
-		int saved_errno = errno;
+	addr.sun_family = AF_UNIX;
+
+	len = strlen(&path[1]) + 1;
+	if (len >= sizeof(addr.sun_path) - 1) {
 		close(fd);
-		errno = saved_errno;
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	/* addr.sun_path[0] has already been set to 0 by memset() */
+	strncpy(&addr.sun_path[1], &path[1], strlen(&path[1]));
+
+	if (bind(fd, (struct sockaddr *)&addr, offsetof(struct sockaddr_un, sun_path) + len)) {
+		int tmp = errno;
+		close(fd);
+		errno = tmp;
 		return -1;
 	}
 
-	ret = bind(fd, (struct sockaddr *)&addr,
-		   offsetof(struct sockaddr_un, sun_path) + len + 1);
-	if (ret < 0) {
-		int saved_errno = errno;
+	if (type == SOCK_STREAM && listen(fd, 100)) {
+		int tmp = errno;
 		close(fd);
-		errno = saved_errno;
+		errno = tmp;
 		return -1;
-	}
-
-	if (type == SOCK_STREAM) {
-		ret = listen(fd, 100);
-		if (ret < 0) {
-			int saved_errno = errno;
-			close(fd);
-			errno = saved_errno;
-			return -1;
-		}
 	}
 
 	return fd;
 }
 
-void lxc_abstract_unix_close(int fd)
+int lxc_abstract_unix_close(int fd)
 {
 	close(fd);
+
+	return 0;
 }
 
 int lxc_abstract_unix_connect(const char *path)
 {
-	int fd, ret;
-	ssize_t len;
+	int fd;
+	size_t len;
 	struct sockaddr_un addr;
 
 	fd = socket(PF_UNIX, SOCK_STREAM, 0);
 	if (fd < 0)
 		return -1;
 
-	len = lxc_abstract_unix_set_sockaddr(&addr, path);
-	if (len < 0) {
-		int saved_errno = errno;
+	memset(&addr, 0, sizeof(addr));
+
+	addr.sun_family = AF_UNIX;
+
+	len = strlen(&path[1]) + 1;
+	if (len >= sizeof(addr.sun_path) - 1) {
 		close(fd);
-		errno = saved_errno;
+		errno = ENAMETOOLONG;
 		return -1;
 	}
+	/* addr.sun_path[0] has already been set to 0 by memset() */
+	strncpy(&addr.sun_path[1], &path[1], strlen(&path[1]));
 
-	ret = connect(fd, (struct sockaddr *)&addr,
-		      offsetof(struct sockaddr_un, sun_path) + len + 1);
-	if (ret < 0) {
-		int saved_errno = errno;
+	if (connect(fd, (struct sockaddr *)&addr, offsetof(struct sockaddr_un, sun_path) + len)) {
+		int tmp = errno;
+		/* special case to connect to older containers */
+		if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0)
+			return fd;
 		close(fd);
-		errno = saved_errno;
+		errno = tmp;
 		return -1;
 	}
 
 	return fd;
 }
 
-int lxc_abstract_unix_send_fds(int fd, int *sendfds, int num_sendfds,
-			       void *data, size_t size)
+int lxc_abstract_unix_send_fd(int fd, int sendfd, void *data, size_t size)
 {
-	int ret;
-	struct msghdr msg;
+	struct msghdr msg = { 0 };
 	struct iovec iov;
-	struct cmsghdr *cmsg = NULL;
-	char buf[1] = {0};
-	char *cmsgbuf;
-	size_t cmsgbufsize = CMSG_SPACE(num_sendfds * sizeof(int));
-
-	memset(&msg, 0, sizeof(msg));
-	memset(&iov, 0, sizeof(iov));
-
-	cmsgbuf = malloc(cmsgbufsize);
-	if (!cmsgbuf) {
-		errno = ENOMEM;
-		return -1;
-	}
+	struct cmsghdr *cmsg;
+	char cmsgbuf[CMSG_SPACE(sizeof(int))];
+	char buf[1];
+	int *val;
 
 	msg.msg_control = cmsgbuf;
-	msg.msg_controllen = cmsgbufsize;
+	msg.msg_controllen = sizeof(cmsgbuf);
 
 	cmsg = CMSG_FIRSTHDR(&msg);
+	cmsg->cmsg_len = CMSG_LEN(sizeof(int));
 	cmsg->cmsg_level = SOL_SOCKET;
 	cmsg->cmsg_type = SCM_RIGHTS;
-	cmsg->cmsg_len = CMSG_LEN(num_sendfds * sizeof(int));
+	val = (int *)(CMSG_DATA(cmsg));
+	*val = sendfd;
 
-	msg.msg_controllen = cmsg->cmsg_len;
-
-	memcpy(CMSG_DATA(cmsg), sendfds, num_sendfds * sizeof(int));
+	msg.msg_name = NULL;
+	msg.msg_namelen = 0;
 
 	iov.iov_base = data ? data : buf;
 	iov.iov_len = data ? size : sizeof(buf);
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 
-	ret = sendmsg(fd, &msg, MSG_NOSIGNAL);
-	free(cmsgbuf);
-	return ret;
+	return sendmsg(fd, &msg, MSG_NOSIGNAL);
 }
 
-int lxc_abstract_unix_recv_fds(int fd, int *recvfds, int num_recvfds,
-			       void *data, size_t size)
+int lxc_abstract_unix_recv_fd(int fd, int *recvfd, void *data, size_t size)
 {
-	int ret;
-	struct msghdr msg;
+	struct msghdr msg = { 0 };
 	struct iovec iov;
-	struct cmsghdr *cmsg = NULL;
-	char buf[1] = {0};
-	char *cmsgbuf;
-	size_t cmsgbufsize = CMSG_SPACE(num_recvfds * sizeof(int));
+	struct cmsghdr *cmsg;
+	char cmsgbuf[CMSG_SPACE(sizeof(int))];
+	char buf[1];
+	int ret, *val;
 
-	memset(&msg, 0, sizeof(msg));
-	memset(&iov, 0, sizeof(iov));
-
-	cmsgbuf = malloc(cmsgbufsize);
-	if (!cmsgbuf) {
-		errno = ENOMEM;
-		return -1;
-	}
-
+	msg.msg_name = NULL;
+	msg.msg_namelen = 0;
 	msg.msg_control = cmsgbuf;
-	msg.msg_controllen = cmsgbufsize;
+	msg.msg_controllen = sizeof(cmsgbuf);
 
 	iov.iov_base = data ? data : buf;
 	iov.iov_len = data ? size : sizeof(buf);
@@ -228,26 +176,32 @@ int lxc_abstract_unix_recv_fds(int fd, int *recvfds, int num_recvfds,
 
 	cmsg = CMSG_FIRSTHDR(&msg);
 
-	memset(recvfds, -1, num_recvfds * sizeof(int));
-	if (cmsg && cmsg->cmsg_len == CMSG_LEN(num_recvfds * sizeof(int)) &&
-	    cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS)
-		memcpy(recvfds, CMSG_DATA(cmsg), num_recvfds * sizeof(int));
+	/* if the message is wrong the variable will not be
+	 * filled and the peer will notified about a problem */
+	*recvfd = -1;
 
+	if (cmsg && cmsg->cmsg_len == CMSG_LEN(sizeof(int)) &&
+			cmsg->cmsg_level == SOL_SOCKET &&
+			cmsg->cmsg_type == SCM_RIGHTS) {
+		val = (int *) CMSG_DATA(cmsg);
+		*recvfd = *val;
+	}
 out:
-	free(cmsgbuf);
 	return ret;
 }
 
 int lxc_abstract_unix_send_credential(int fd, void *data, size_t size)
 {
-	struct msghdr msg = {0};
+	struct msghdr msg = { 0 };
 	struct iovec iov;
 	struct cmsghdr *cmsg;
 	struct ucred cred = {
-	    .pid = lxc_raw_getpid(), .uid = getuid(), .gid = getgid(),
+		.pid = getpid(),
+		.uid = getuid(),
+		.gid = getgid(),
 	};
-	char cmsgbuf[CMSG_SPACE(sizeof(cred))] = {0};
-	char buf[1] = {0};
+	char cmsgbuf[CMSG_SPACE(sizeof(cred))];
+	char buf[1];
 
 	msg.msg_control = cmsgbuf;
 	msg.msg_controllen = sizeof(cmsgbuf);
@@ -271,13 +225,13 @@ int lxc_abstract_unix_send_credential(int fd, void *data, size_t size)
 
 int lxc_abstract_unix_rcv_credential(int fd, void *data, size_t size)
 {
-	struct msghdr msg = {0};
+	struct msghdr msg = { 0 };
 	struct iovec iov;
 	struct cmsghdr *cmsg;
 	struct ucred cred;
+	char cmsgbuf[CMSG_SPACE(sizeof(cred))];
+	char buf[1];
 	int ret;
-	char cmsgbuf[CMSG_SPACE(sizeof(cred))] = {0};
-	char buf[1] = {0};
 
 	msg.msg_name = NULL;
 	msg.msg_namelen = 0;
@@ -296,17 +250,14 @@ int lxc_abstract_unix_rcv_credential(int fd, void *data, size_t size)
 	cmsg = CMSG_FIRSTHDR(&msg);
 
 	if (cmsg && cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred)) &&
-	    cmsg->cmsg_level == SOL_SOCKET &&
-	    cmsg->cmsg_type == SCM_CREDENTIALS) {
+			cmsg->cmsg_level == SOL_SOCKET &&
+			cmsg->cmsg_type == SCM_CREDENTIALS) {
 		memcpy(&cred, CMSG_DATA(cmsg), sizeof(cred));
-		if (cred.uid &&
-		    (cred.uid != getuid() || cred.gid != getgid())) {
-			INFO("Message denied for '%d/%d'", cred.uid, cred.gid);
-			errno = EACCES;
-			return -1;
+		if (cred.uid && (cred.uid != getuid() || cred.gid != getgid())) {
+			INFO("message denied for '%d/%d'", cred.uid, cred.gid);
+			return -EACCES;
 		}
 	}
-
 out:
 	return ret;
 }

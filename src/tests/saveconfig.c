@@ -37,30 +37,26 @@ static int create_container(void)
 		perror("fork");
 		return -1;
 	}
-
 	if (pid == 0) {
-		execlp("lxc-create", "lxc-create", "-t", "busybox", "-n", MYNAME, NULL);
-		exit(EXIT_FAILURE);
+		ret = execlp("lxc-create", "lxc-create", "-t", "busybox", "-n", MYNAME, NULL);
+		// Should not return
+		perror("execl");
+		exit(1);
 	}
-
 again:
 	ret = waitpid(pid, &status, 0);
 	if (ret == -1) {
 		if (errno == EINTR)
 			goto again;
-
 		perror("waitpid");
 		return -1;
 	}
-
 	if (ret != pid)
 		goto again;
-
 	if (!WIFEXITED(status))  { // did not exit normally
 		fprintf(stderr, "%d: lxc-create exited abnormally\n", __LINE__);
 		return -1;
 	}
-
 	return WEXITSTATUS(status);
 }
 
@@ -96,7 +92,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%d: failed writing config file /tmp/lxctest1\n", __LINE__);
 		goto out;
 	}
-
 	rename(LXCPATH "/" MYNAME "/config", LXCPATH "/" MYNAME "/config.bak");
 	if (!c->save_config(c, NULL)) {
 		fprintf(stderr, "%d: failed writing config file\n", __LINE__);
@@ -115,7 +110,6 @@ int main(int argc, char *argv[])
 
 	fprintf(stderr, "all lxc_container tests passed for %s\n", c->name);
 	ret = 0;
-
 out:
 	lxc_container_put(c);
 	exit(ret);
