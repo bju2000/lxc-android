@@ -50,7 +50,7 @@
 #include "state.h"
 
 #if IS_BIONIC
-#include <../include/lxcmntent.h>
+#include "../include/lxcmntent.h"
 #else
 #include <mntent.h>
 #endif
