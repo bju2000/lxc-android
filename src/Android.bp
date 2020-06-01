@@ -9,6 +9,7 @@ common_CFLAGS = [
     "-DLXCPATH=\"/data/maru/containers\"",
     "-DLXCROOTFSMOUNT=\"/system/lib/lxc/rootfs\"",
     "-DLXCTEMPLATEDIR=\"/system/maru/lxc/share/lxc/templates\"",
+    "-DLXCTEMPLATECONFIG=\"/system/maru/lxc/share/lxc/config\"",
     "-DLOGPATH=\"/data/maru/containers\"",
     "-DDEFAULT_CGROUP_PATTERN=\"lxc/%n\"",
     "-DLXCINITDIR=\"/system/maru/lxc/libexec\"",
