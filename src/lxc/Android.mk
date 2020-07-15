@@ -24,5 +24,5 @@ LOCAL_MODULE := lxc-rootfs-mnt-README
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := ETC
 LOCAL_MODULE_PATH := $(TARGET_OUT)/lib/lxc/rootfs
-LOCAL_SRC_FILES := ../doc/rootfs/README
+LOCAL_SRC_FILES := ../../lxc/doc/rootfs/README
 include $(BUILD_PREBUILT)
